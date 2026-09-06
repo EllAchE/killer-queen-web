@@ -6,7 +6,7 @@ process.on('warning', e => console.warn(e.stack));
 const http = require('http');
 const fs = require('fs');
 global.fs = fs;
-const port = 3000;
+const port = process.env.PORT || 3000;
 const app = http.createServer(function(req, res) {
 	if(!req.url) req.url = "index.html";
 	if(req.url == "/") req.url = "/index.html";
