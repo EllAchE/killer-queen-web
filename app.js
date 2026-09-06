@@ -18,7 +18,7 @@ const app = http.createServer(function(req, res) {
     res.writeHead(200, headers);
     res.end(fs.readFileSync(__dirname + req.url));
 });
-const io = require('socket.io').listen(app);
+const io = require('socket.io')(app);
 global.io = io;
 // module.exports = io;
 

@@ -69,7 +69,7 @@ window.onload = function() {
       let div = document.getElementById("game-over");
       div.classList.remove("hide");
 
-      div = document.getElementById("win-text").innerHTML = data.type;
+      document.getElementById("win-text").innerHTML = window.kqxWinText(data);
 
       div = document.getElementById("win-mask");
 
@@ -83,8 +83,8 @@ window.onload = function() {
       let top = data.focus.top - 50;
       let left = data.focus.left - 50;
 
-      div.style.top = top;
-      div.style.left = left;
+      div.style.top = top + "px";
+      div.style.left = left + "px";
     }, d);
   });
 
@@ -192,7 +192,12 @@ window.onload = function() {
   		socket.emit(CONST.KEY_UPDATE, keys);
   	}
   }
+  window.kqxClearKeys = () => {
+  	keys.length = 0;
+  	socket.emit(CONST.KEY_UPDATE, keys);
+  }
   window.addEventListener("keydown", function(event) {
+  	if(window.kqxHelpOpen) return;
   	keyDown(event.key);
   });
   window.addEventListener("keyup", function(event) {
@@ -261,4 +266,53 @@ window.onload = function() {
 
 
 	}
+}
+/**
+ * The play field is a fixed 800x600 box (game.js hard-codes those bounds), so
+ * fitting the window is a pure presentation scale: pick the largest whole-box
+ * scale the viewport allows and centre it. No game coordinate changes.
+ */
+function kqxFit() {
+	var g = document.getElementById("game");
+	if(!g) return;
+
+	var s = Math.min(window.innerWidth / 800, window.innerHeight / 600);
+	var x = Math.round((window.innerWidth - 800 * s) / 2);
+	var y = Math.round((window.innerHeight - 600 * s) / 2);
+
+	g.style.transform = "translate(" + x + "px," + y + "px) scale(" + s + ")";
+}
+window.addEventListener("resize", kqxFit);
+window.addEventListener("orientationchange", kqxFit);
+document.addEventListener("DOMContentLoaded", kqxFit);
+window.addEventListener("load", kqxFit);
+
+window.kqxHelpOpen = false;
+window.kqxHelp = function(show) {
+	var d = document.getElementById("kqx-help");
+	if(!d) return;
+
+	window.kqxHelpOpen = !!show;
+	if(show) {
+		d.classList.remove("kqx-off");
+		if(window.kqxClearKeys) window.kqxClearKeys();
+	} else {
+		d.classList.add("kqx-off");
+	}
+}
+document.addEventListener("keydown", function(event) {
+	if(event.key == "Escape") window.kqxHelp(false);
+	else if(event.key == "?" || event.key == "h" || event.key == "H")
+		window.kqxHelp(!window.kqxHelpOpen);
+});
+
+window.kqxWinText = function(data) {
+	var hive = (data.team == "teamBlue") ? "BLUE HIVE" : "GOLD HIVE";
+	var how = {
+		win_economic: "ECONOMIC VICTORY",
+		win_military: "MILITARY VICTORY",
+		win_snail: "SNAIL VICTORY"
+	}[data.type] || "VICTORY";
+
+	return hive + " WINS &mdash; " + how;
 }
