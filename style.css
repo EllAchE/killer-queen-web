@@ -497,3 +497,28 @@ html, body {
 	color: #8d8aa3;
 	font-size: 12px;
 }
+
+/* ---- motion ------------------------------------------------------------ */
+
+/* motion.js composes one transform per toon, so a squash has to pivot on the
+   feet rather than the middle of the sprite. */
+.toon {
+	transform-origin: 50% 100%;
+	will-change: transform;
+}
+
+@keyframes kqx-ghost-fade {
+	to { opacity: 0; }
+}
+
+/* An afterimage dropped behind a fast toon: it carries no class the game
+   looks at, and sits under the live sprites. The duration here is the one
+   motion.js waits before removing the element. */
+.kqx-ghost {
+	position: absolute;
+	z-index: 9;
+	pointer-events: none;
+	background-repeat: no-repeat;
+	transform-origin: 50% 100%;
+	animation: kqx-ghost-fade 260ms linear forwards;
+}

@@ -139,6 +139,8 @@ window.onload = function() {
 					if(o.speedUpgrade > 0) ele.classList.add("speed-upgrade");
 					else ele.classList.remove("speed-upgrade");
 
+					if(window.kqxMotion) window.kqxMotion.observe(o, ele);
+
 					if(o.id.indexOf("shrine") > -1) {
 						if(o.affiliation == CONST.TEAM_BLUE) ele.classList.add("blue");
 						else ele.classList.remove("blue");
