@@ -168,8 +168,20 @@ html, body {
 	filter: saturate(2) hue-rotate(180deg);
 }
 
-.level-test {
+.level-test,
+.level-day {
 	background: url("assets/level-test.jpg") no-repeat;
+}
+
+/* The other boards have no painted backdrop, so they get a sky instead. */
+.level-night {
+	background: linear-gradient(#05060f 0%, #0b1030 55%, #131a4a 100%);
+}
+.level-bonus-military {
+	background: linear-gradient(#2a0f0b 0%, #571d10 60%, #7c2d12 100%);
+}
+.level-bonus-warriors {
+	background: linear-gradient(#12060f 0%, #3b0d2a 60%, #5b1140 100%);
 }
 
 .toon {
@@ -219,6 +231,18 @@ html, body {
 	position:absolute;
 	/*background: #ff0;*/
 	height: 10px;
+}
+
+/* The Day board's platforms are painted into its backdrop, so .ground is left
+   invisible there. Every other board only has the gradient behind it and has to
+   draw its own, or you are standing on nothing. */
+.level-night .ground,
+.level-bonus-military .ground,
+.level-bonus-warriors .ground {
+	box-sizing: border-box;
+	background: linear-gradient(#c9a468 0%, #8b5f32 45%, #58391d 100%);
+	border-top: 2px solid #efd9a8;
+	border-radius: 2px;
 }
 
 .egg {
@@ -723,4 +747,43 @@ html, body {
 	margin: 18px 0 0;
 	font-size: 12px;
 	color: #6d6a85;
+}
+
+/* ---- map picker ---- */
+
+.kqx-map-pick {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	margin: 14px auto 0;
+	max-width: 620px;
+	text-align: left;
+	font-size: 11px;
+	color: #cbd5e1;
+}
+
+.kqx-map-pick label {
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	color: #94a3b8;
+}
+
+#kqx-map {
+	background: #0f172a;
+	color: #f8fafc;
+	border: 1px solid #475569;
+	border-radius: 4px;
+	padding: 4px 6px;
+	font: inherit;
+}
+
+#kqx-map:hover { border-color: #94a3b8; }
+
+#kqx-map-blurb {
+	flex: 1;
+	min-width: 0;
+	color: #94a3b8;
+	font-size: 10px;
+	line-height: 1.4;
 }

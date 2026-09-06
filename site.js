@@ -46,6 +46,8 @@ window.onload = function() {
     DIRECTION_LEFT:"direction-left",
     DIRECTION_DOWN:"direction-down",
     MENU_UPDATE:"menu_update",
+    MAP_UPDATE:"map_update",
+    USER_MAP_SELECT:"user_map_select",
     KEY_UP:"ArrowUp",
     KEY_DOWN:"ArrowDown",
     KEY_LEFT:"ArrowLeft",
@@ -177,6 +179,55 @@ window.onload = function() {
   		document.getElementById('menu').classList.remove("hide");
   	// }
   });
+
+  /**
+   * The board is markup, so switching maps is a fetch and an innerHTML: the
+   * server has already parsed the same file to build the objects it will send
+   * updates for. Anything the client hung inside #level (name tags) goes with
+   * it and is rebuilt on the next frame.
+   */
+  socket.on(CONST.MAP_UPDATE, data => {
+  	buildMapPicker(data.maps, data.map);
+
+  	if(game.mapLoaded == data.map) return;
+
+  	fetch("maps/" + encodeURIComponent(data.map) + ".html").then(r => {
+  		if(!r.ok) throw new Error(r.status);
+  		return r.text();
+  	}).then(html => {
+  		var level = document.getElementById("level");
+  		level.innerHTML = html;
+  		// The day board has a painted backdrop drawn for its exact platforms;
+  		// the others get their own in style.css.
+  		level.className = "level-" + data.map;
+  		game.mapLoaded = data.map;
+  		kqxFit();
+  	}).catch(e => console.warn("map load failed", e));
+  });
+
+  function buildMapPicker(maps, current) {
+  	var sel = document.getElementById("kqx-map");
+  	if(!sel || !maps) return;
+
+  	// Rebuilt rather than patched: another player may have changed it, and the
+  	// list is four options.
+  	sel.innerHTML = "";
+  	Object.keys(maps).forEach(name => {
+  		var o = document.createElement("option");
+  		o.value = name;
+  		o.textContent = maps[name].label;
+  		o.selected = (name == current);
+  		sel.appendChild(o);
+  	});
+
+  	var blurb = document.getElementById("kqx-map-blurb");
+  	if(blurb) blurb.textContent = maps[current] ? maps[current].blurb : "";
+  }
+
+  window.kqxMapChanged = () => {
+  	var sel = document.getElementById("kqx-map");
+  	if(sel) socket.emit(CONST.USER_MAP_SELECT, {map: sel.value});
+  };
 
   socket.on(CONST.ALERT, (data) => {
   	window.alert(data.text);

@@ -32,6 +32,8 @@ const CONST = {
 	DIRECTION_LEFT:"direction-left",
 	DIRECTION_DOWN:"direction-down",
 	MENU_UPDATE:"menu_update",
+	MAP_UPDATE:"map_update",         // which map the lobby is on now
+	USER_MAP_SELECT:"user_map_select", // a player picking a different one
 	KEY_UP:"ArrowUp",
 	KEY_DOWN:"ArrowDown",
 	KEY_LEFT:"ArrowLeft",
@@ -73,6 +75,43 @@ const CONST = {
 	GRAVITY_MAX: 4,
 	GRAVITY_RATE: 0.2,
 }
+
+/**
+ * The maps, in menu order. Each one is a fragment of #level markup under
+ * maps/, parsed by loadLevel on the server and dropped into #level on the
+ * client, so a map is content rather than code.
+ *
+ * The flags are the things markup cannot say. The arcade's Day board wraps
+ * left to right and its Night board wraps top to bottom, and the bonus rounds
+ * change who you spawn as, none of which is a property of any one element.
+ */
+const MAPS = {
+	day: {
+		label: "Day",
+		blurb: "The standard board. Hives up top, snail along the bottom, walk off one side and come back the other.",
+		wrap: "x",
+		allWarriors: false
+	},
+	night: {
+		label: "Night",
+		blurb: "Hives at the bottom facing each other across a gap, so a kicked berry can land in the wrong one. Falling off the bottom drops you in at the top.",
+		wrap: "y",
+		allWarriors: false
+	},
+	"bonus-military": {
+		label: "Bonus: Military",
+		blurb: "No snail and no berry slots, so berries buy upgrades and nothing else. Killing the Queen is the only way this ends.",
+		wrap: "x",
+		allWarriors: false
+	},
+	"bonus-warriors": {
+		label: "Bonus: Warriors",
+		blurb: "Everyone spawns armed on an empty board. No berries, no gates, no snail, no respawn advantage -- just the two hives.",
+		wrap: "x",
+		allWarriors: true
+	}
+};
+const DEFAULT_MAP = "day";
 
 
 /**
@@ -142,10 +181,16 @@ class EventDispatcher {
 		}
 	}
 	
-	addEventListener(type, callback, priority) {
+	/**
+	 * @owner the object the listener belongs to, which is not the dispatcher:
+	 * every level object registers on Game.instance, so this is the only
+	 * record of who a listener came from and the only way to drop a level's
+	 * listeners when the map changes.
+	 */
+	addEventListener(type, callback, priority, owner) {
 		if(callback === undefined) throw new Error("undefined callback!", this);
 
-		this._listeners.push({currentTarget:this, type:type, callback:callback, priority:priority});
+		this._listeners.push({currentTarget:this, type:type, callback:callback, priority:priority, owner:owner || this});
 		this.prioritize();
 	}
 
@@ -241,7 +286,7 @@ class Element extends Collideable {
 	}
 
 	addRestartListener() {
-		Game.instance.addEventListener(CONST.GAME_START, event => {
+		this.listen(CONST.GAME_START, event => {
 			this.mReset();
 		});
 	}
@@ -273,6 +318,15 @@ class Virtual extends Element {
 		this.top = 0;
 		this.width = 0;
 		this.height = 0;
+	}
+
+	/**
+	 * Level objects listen on Game.instance but belong to the level, so they
+	 * register through here to stamp themselves as the owner. releaseLevel
+	 * then has something to match on.
+	 */
+	listen(type, callback, priority) {
+		Game.instance.addEventListener(type, callback, priority, this);
 	}
 
 	loop() {} // todo: replace with events now that they exist
@@ -365,7 +419,7 @@ class Updateable extends Virtual {
 	 */
 	watchMe() {
 		// console.log('WATCH ME', this.id)
-		Game.instance.addEventListener(CONST.LOOP, () => {
+		this.listen(CONST.LOOP, () => {
 			this.updateLoop();
 		});
 
@@ -477,7 +531,7 @@ class Egg extends Updateable {
 	}
 
 	addRestartListener() {
-		Game.instance.addEventListener(CONST.GAME_START, event => {
+		this.listen(CONST.GAME_START, event => {
 			this.mReset();
 		}, 1000);
 	}
@@ -517,20 +571,20 @@ class Berry extends Updateable {
 
 		this.active = true;
 
-		Game.instance.addEventListener(CONST.LOOP, event => {
+		this.listen(CONST.LOOP, event => {
 			this.loop();
 		})
-		Game.instance.addEventListener(CONST.SHRINE_POWER_UP, event => {
+		this.listen(CONST.SHRINE_POWER_UP, event => {
 			if(event.extra.toon == this.toon) {
 				this.usedForShrine();
 			}
 		});
-		Game.instance.addEventListener(CONST.ATTACKED, event => {
+		this.listen(CONST.ATTACKED, event => {
 			if(event.extra.toon == this.toon) {
 				this.toon = null;
 			}
 		});
-		Game.instance.addEventListener(CONST.BERRY_PICKUP, event => {
+		this.listen(CONST.BERRY_PICKUP, event => {
 			if(event.extra.berry != this) return;
 
 			if(this.toon || event.extra.toon.berry != this) {
@@ -549,7 +603,7 @@ class Berry extends Updateable {
 		if(o instanceof Worker) {
 			this.toon = o;
 
-			Game.instance.addEventListener(CONST.SNAIL_ATTACK, event => {
+			this.listen(CONST.SNAIL_ATTACK, event => {
 				if(event.extra.toon == this.toon) {
 					this.toon = false;
 
@@ -615,10 +669,10 @@ class Snail extends Updateable {
 		this.swallowTimeoutID = null;
 
 
-		Game.instance.addEventListener(CONST.LOOP, event => {
+		this.listen(CONST.LOOP, event => {
 			this.loop();
 		})
-		Game.instance.addEventListener(CONST.SNAIL_ATTACK, event => {
+		this.listen(CONST.SNAIL_ATTACK, event => {
 			this.swallowing = true;
 			this.victim = event.extra.toon;
 			this.swallowTimeoutID = setTimeout(() => {
@@ -630,14 +684,14 @@ class Snail extends Updateable {
 
 		// One listener for the life of the snail. Mounting used to add its own,
 		// so every ride leaked another, and removeEventListener is broken.
-		Game.instance.addEventListener(CONST.ATTACKED, event => {
+		this.listen(CONST.ATTACKED, event => {
 			if(this.toon && event.extra.toon == this.toon) {
 				console.log("SNAIL RIDER DEAD");
 				this.toon = null;
 			}
 		});
 
-		Game.instance.addEventListener(CONST.JUMP, event => {
+		this.listen(CONST.JUMP, event => {
 			if(event.extra.toon == this.toon) {
 				//jumped off the snail;
 				this.toon = null;
@@ -835,7 +889,7 @@ class Goal extends Virtual {
 
 		Goal.goals.push(this);
 
-		Game.instance.addEventListener(CONST.LOOP, event => {
+		this.listen(CONST.LOOP, event => {
 			this.loop();
 		})
 	}
@@ -986,22 +1040,22 @@ class Toon extends Updateable {
 
 		this.mass = CONST.TOON_MASS;
 
-		Game.instance.addEventListener(CONST.LOOP, event => {
+		this.listen(CONST.LOOP, event => {
 			this.loop();
 		})
-		Game.instance.addEventListener(CONST.USER_READY, event => {
+		this.listen(CONST.USER_READY, event => {
 			if(event.extra.user.toonId == this.id) {
 				// toon is now human
 				this.isAIPlayer = false;
 			}
 		});
-		Game.instance.addEventListener(CONST.USER_DISCONNECT, event => {
+		this.listen(CONST.USER_DISCONNECT, event => {
 			if(event.extra.user.toonId && event.extra.user.toonId == this.id) {
 				// toon is now AI
 				this.isAIPlayer = true;
 			}
 		});
-		Game.instance.addEventListener(CONST.ELE_BUMP, event => {
+		this.listen(CONST.ELE_BUMP, event => {
 			// todo: not complete - need pi based direction for elements, velocity returns direction * mass
 			// event.extra.forEach(o => {
 			// 	if(this.id == o.id) {
@@ -1197,9 +1251,19 @@ class Toon extends Updateable {
 	 * check offscreen / off level (repeat)
 	 */
 	visibilityCheck() {
-		if(this.left + this.width/2 < 0) this.left = Game.instance.virtual.level.width - this.width/2;
-		if(this.left + this.width/2 > Game.instance.virtual.level.width) this.left = 0;
+		var level = Game.instance.virtual.level;
+		var wrap = Game.instance.mapConfig.wrap;
 
+		// Which edges lead back onto the board is the map's call: the arcade's
+		// Day board runs you off the sides, its Night board off the bottom.
+		if(wrap == "x" || wrap == "both") {
+			if(this.left + this.width/2 < 0) this.left = level.width - this.width/2;
+			if(this.left + this.width/2 > level.width) this.left = 0;
+		}
+		if(wrap == "y" || wrap == "both") {
+			if(this.top + this.height/2 < 0) this.top = level.height - this.height/2;
+			if(this.top + this.height/2 > level.height) this.top = 0;
+		}
 	}
 
 	roundNumbers() {
@@ -1357,7 +1421,7 @@ class Worker extends Toon {
 	constructor(id) {
 		super(id);
 
-		Game.instance.addEventListener(CONST.SNAIL_ATTACK, event => {
+		this.listen(CONST.SNAIL_ATTACK, event => {
 			// No re-check of the snail's own swallowing flag: it is the only
 			// thing that raises this event and it already refuses to while
 			// mid-meal. Reading it back here only worked while the level markup
@@ -1366,7 +1430,7 @@ class Worker extends Toon {
 				this.swallowed();
 			}
 		});
-		Game.instance.addEventListener(CONST.SHRINE_POWER_UP, event => {
+		this.listen(CONST.SHRINE_POWER_UP, event => {
 			if(this.berry && event.extra.toon == this) {
 				this.inactiveFor(CONST.SHRINE_POWER_UP_DELAY);
 				this.loseBerry();
@@ -1569,6 +1633,10 @@ class Worker extends Toon {
 		this.speedUpgrade = false;
 		this.berry = null;
 		this.snail = null;
+
+		// The warrior bonus round starts everyone armed, so respawning has to
+		// hand the upgrade straight back rather than sending you to a gate.
+		if(Game.instance.mapConfig.allWarriors) this.gainWarrior();
 	}
 
 	berryCheck() {
@@ -1595,6 +1663,7 @@ class Worker extends Toon {
 	snailCheck() {
 		if(!this.warrior) {
 			var snail = Game.instance.virtual.level.snail;
+			if(!snail) return; // the bonus maps have no snail
 			if(!this.snail) {
 				if(!snail.toon && snail.hitTestBounds(this.boundingBox)) {
 					snail.collission(this);
@@ -1726,21 +1795,8 @@ class Game extends EventDispatcher {
 			gravity_rate: CONST.GRAVITY_RATE,//0.2,
 		};
 		this.users = [];
-		this.virtual = {
-			level: {
-				width: 800, // todo: pull in from this.loadLevel()
-				height: 600,
-				eggs:[],
-				toons:{},
-				snail: null,
-				snailCages: [],
-				// pathPoints: [],
-				shrines:[],
-				goals:[],
-				berries:[],
-				ground:[]
-			}
-		};
+		this.map = DEFAULT_MAP;
+		this.virtual = {level: Game.emptyLevel()};
 
 		this.addEventListener(CONST.GAME_START, event => {
 			console.log("!! GAME START");
@@ -1814,6 +1870,26 @@ class Game extends EventDispatcher {
 		return Game._instance;
 	}
 
+	static emptyLevel() {
+		return {
+			width: 800, // todo: pull in from this.loadLevel()
+			height: 600,
+			eggs:[],
+			toons:{},
+			snail: null,
+			snailCages: [],
+			// pathPoints: [],
+			shrines:[],
+			goals:[],
+			berries:[],
+			ground:[]
+		};
+	}
+
+	get mapConfig() {
+		return MAPS[this.map] || MAPS[DEFAULT_MAP];
+	}
+
 	get loopCount() {
 		return this._loopCount;
 	}
@@ -1883,17 +1959,51 @@ class Game extends EventDispatcher {
 		Updateable.sendUpdates();
 	}
 
-	loadLevel(htmlFile, styleFile) {
+	/**
+	 * Drops the level on the floor so another one can be parsed over it.
+	 *
+	 * Level objects hang listeners off Game.instance and never take them
+	 * down -- removeEventListener does not work and there was never anything
+	 * to take down before, since the level outlived the process. Without this
+	 * a map change would leave the old board still running its loop.
+	 */
+	releaseLevel() {
+		this._listeners = this._listeners.filter(l => !(l.owner instanceof Virtual));
+
+		Goal._goals = [];
+		Updateable._copies = [];
+		Updateable._pendingUpdates = [];
+
+		this.virtual.level = Game.emptyLevel();
+	}
+
+	/**
+	 * @mapName a key of MAPS; its markup is maps/<name>.html, the same
+	 * fragment the browser drops into #level, so both sides read one file.
+	 * @return Promise resolved once every object on the board exists
+	 */
+	loadLevel(mapName) {
 		const cheerio = require('cheerio');
 		const css = require('css');
+		const path = require('path');
 		const fs = global.fs;
+
+		if(!MAPS[mapName]) throw new Error("unknown map: " + mapName);
+		this.map = mapName;
+
+		var htmlFile = path.join(__dirname, "maps", mapName + ".html");
+		var styleFile = path.join(__dirname, "style.css");
+
+		return new Promise((resolve, reject) => {
 		var vhtml;
 		fs.readFile(htmlFile, 'utf8', (err,data) => {
-			if(err) throw err;
-			vhtml = cheerio.load(data);
+			if(err) return reject(err);
+			// The file is only the children of #level, so give the parser the
+			// wrapper it selects on below.
+			vhtml = cheerio.load('<div id="level">' + data + '</div>');
 
 			fs.readFile(styleFile, 'utf8', (err,data) => {
-				if(err) throw err;
+				if(err) return reject(err);
 				var vcss = css.parse(data);
 
 				// add json version to css rules
@@ -2024,13 +2134,18 @@ class Game extends EventDispatcher {
 						vobj.initCSS = r;
 					}
 				}
+
+				resolve(this);
 			});
+		});
 		});
 	}
 }
 
 module.exports =  {
 	CONST: 				CONST,
+	MAPS: 				MAPS,
+	DEFAULT_MAP: 		DEFAULT_MAP,
 	Event:				Event,
 	EventDispatcher:	EventDispatcher,
 	Collideable:		Collideable,

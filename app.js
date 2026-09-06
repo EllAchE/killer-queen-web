@@ -45,6 +45,18 @@ function cleanName(raw) {
  * Names go to everyone, unlike MENU_UPDATE, which only reaches users who have
  * not picked a character yet -- in-game players need these too.
  */
+/**
+ * The map is lobby-wide, not per-player, so everyone is told which one is
+ * loaded: the browser fetches the same maps/<name>.html the server parsed and
+ * drops it into #level.
+ */
+function broadcastMap() {
+	io.sockets.emit(KQ.CONST.MAP_UPDATE, {
+		map: KQ.Game.instance.map,
+		maps: KQ.MAPS
+	});
+}
+
 function broadcastNames() {
 	var names = {};
 	KQ.Game.instance.users.forEach(u => {
@@ -68,6 +80,7 @@ io.sockets.on("connection", socket => {
 	if(KQ.Game.instance.noUsersResetDelayTimeoutID) clearTimeout(KQ.Game.instance.noUsersResetDelayTimeoutID);
 
 	KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.MENU_UPDATE));
+	socket.emit(KQ.CONST.MAP_UPDATE, {map: KQ.Game.instance.map, maps: KQ.MAPS});
 
 	KQ.Game.instance.addEventListener(KQ.CONST.GAME_RESET, event => {
 		user.toonId = null;
@@ -120,6 +133,31 @@ io.sockets.on("connection", socket => {
 		}
 	})
 
+	socket.on(KQ.CONST.USER_MAP_SELECT, data => {
+		if(!KQ.MAPS[data.map]) return;
+		if(data.map == KQ.Game.instance.map) return;
+
+		// Swapping the board out from under a running match would strand
+		// everyone mid-air, so this is a lobby-only change.
+		if(KQ.Game.instance.gameInProgress) {
+			socket.emit(KQ.CONST.ALERT, {text:"Finish the round before changing the map"});
+			return;
+		}
+
+		clearTimeout(KQ.Game.instance.countdownTimer);
+		KQ.Game.instance.releaseLevel();
+		KQ.Game.instance.loadLevel(data.map).then(() => {
+			// Everyone un-readies: you agreed to play the old board.
+			KQ.Game.instance.users.forEach(u => u.ready = false);
+
+			broadcastMap();
+			KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.MENU_UPDATE));
+		}).catch(e => {
+			console.warn(e);
+			socket.emit(KQ.CONST.ALERT, {text:"That map failed to load"});
+		});
+	});
+
 	socket.on(KQ.CONST.USER_NAME, data => {
 		if(!user.toonId) return;
 		user.name = cleanName(data.name);
@@ -166,7 +204,7 @@ io.sockets.on("connection", socket => {
 });
 
 new KQ.Game(); // singleton
-KQ.Game.instance.loadLevel("index.html", "style.css");
+KQ.Game.instance.loadLevel(KQ.DEFAULT_MAP).catch(e => console.warn(e));
 
 // Registered down here because Game.instance does not exist any earlier.
 KQ.Game.instance.addEventListener(KQ.CONST.GAME_START, () => broadcastNames());
