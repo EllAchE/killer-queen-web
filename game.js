@@ -42,6 +42,7 @@ const CONST = {
 	WARRIOR_SPEED: 3,
 	WARRIOR_SUPER_SPEED: 4,
 	SNAIL_SPEED: 0.1,
+	SNAIL_SPEED_UPGRADE: 0.15, // a drone that came through a speed gate rides faster
 	SNAIL_SWALLOW_DURATION: 3000,
 	SNAIL_ATTACK: "snail_attack",
 	GAME_START_DELAY: 0, // 3, // in seconds (todo: change to ms?) -jkr
@@ -607,7 +608,8 @@ class Snail extends Updateable {
 		super(id);
 
 		this.swallowing = false;
-		this.speed = CONST.SNAIL_SPEED;
+		this.victim = null;
+		this.swallowTimeoutID = null;
 
 
 		Game.instance.addEventListener(CONST.LOOP, event => {
@@ -615,9 +617,21 @@ class Snail extends Updateable {
 		})
 		Game.instance.addEventListener(CONST.SNAIL_ATTACK, event => {
 			this.swallowing = true;
-			setTimeout(() => {
+			this.victim = event.extra.toon;
+			this.swallowTimeoutID = setTimeout(() => {
 				this.swallowing = false;
+				this.victim = null;
+				this.swallowTimeoutID = null;
 			}, CONST.SNAIL_SWALLOW_DURATION);
+		});
+
+		// One listener for the life of the snail. Mounting used to add its own,
+		// so every ride leaked another, and removeEventListener is broken.
+		Game.instance.addEventListener(CONST.ATTACKED, event => {
+			if(this.toon && event.extra.toon == this.toon) {
+				console.log("SNAIL RIDER DEAD");
+				this.toon = null;
+			}
 		});
 
 		Game.instance.addEventListener(CONST.JUMP, event => {
@@ -633,19 +647,22 @@ class Snail extends Updateable {
 
 		if(o instanceof Worker) {
 			if(!this.toon) {
-				this.toon = o;
+				// Only drones ride. A warrior is a Worker with warrior === true,
+				// so the instanceof above lets them through on its own.
+				if(o.warrior) return;
 
-				Game.instance.addEventListener(CONST.ATTACKED, event => {
-					if(event.extra.toon == this.toon) {
-						console.log("SNAIL RIDER DEAD")
-						this.toon = null;
-						console.log(Game.instance.removeEventListener(event));
-					}
-				});
+				this.toon = o;
 			} else {
 				if(o.team != this.toon.team) {
-					//swallow the enemy
-					if(this.swallowing === false) {
+					if(o.warrior) {
+						// A warrior kills the rider outright rather than being
+						// eaten, and that frees whoever was being swallowed.
+						this.freeVictim();
+						this.toon.attacked(o);
+						this.toon = null;
+					}
+					else if(this.swallowing === false) {
+						//swallow the enemy
 						var e = new Event(CONST.SNAIL_ATTACK);
 						e.extra = {toon:o};
 						Game.instance.dispatchEvent(e);
@@ -655,7 +672,11 @@ class Snail extends Updateable {
 		}
 
 		if(o instanceof SnailCage) {
-			Game.instance.win(CONST.WIN_SNAIL, this.toon.team, Game.instance.virtual.level.snail.toon);
+			// loop() only reaches a cage while ridden, but collission is also
+			// reachable from the generic hit test, where there is no rider.
+			if(!this.toon) return;
+
+			Game.instance.win(CONST.WIN_SNAIL, this.toon.team, this.toon);
 		}
 	}
 
@@ -683,10 +704,37 @@ class Snail extends Updateable {
 		}
 	}
 
+	/**
+	 * The rider sets the pace, so a drone that came through a speed gate moves
+	 * the snail faster. That is most of the reason to take speed at all.
+	 */
+	get speed() {
+		if(this.toon && this.toon.speedUpgrade) return CONST.SNAIL_SPEED_UPGRADE;
+
+		return CONST.SNAIL_SPEED;
+	}
+
+	/**
+	 * Spit out whoever is mid-meal and go back to moving.
+	 */
+	freeVictim() {
+		if(!this.swallowing) return;
+
+		if(this.swallowTimeoutID) clearTimeout(this.swallowTimeoutID);
+		this.swallowTimeoutID = null;
+		this.swallowing = false;
+
+		if(this.victim) {
+			this.victim.freed();
+			this.victim = null;
+		}
+	}
+
 	mReset() {
 		super.mReset();
 
 		this.toon = null;
+		this.freeVictim();
 	}
 
 	goLeft() {
@@ -719,6 +767,10 @@ class Shrine extends Updateable {
 		super.collission(o);
 
 		if(o instanceof Worker) {
+			// A gate starts neutral. Once a queen converts it, only her team can
+			// use it -- without this, converting one is purely cosmetic.
+			if(this.affiliation && this.affiliation != o.team) return;
+
 			if(o.berry 
 			&& this.inUse === false 
 			&& o.warrior === false) {
@@ -1303,7 +1355,11 @@ class Worker extends Toon {
 		super(id);
 
 		Game.instance.addEventListener(CONST.SNAIL_ATTACK, event => {
-			if(!this.warrior && this == event.extra.toon && !Game.instance.virtual.level.snail.swallowing) {
+			// No re-check of the snail's own swallowing flag: it is the only
+			// thing that raises this event and it already refuses to while
+			// mid-meal. Reading it back here only worked while the level markup
+			// happened to list the toons before the snail.
+			if(!this.warrior && this == event.extra.toon) {
 				this.swallowed();
 			}
 		});
@@ -1355,11 +1411,25 @@ class Worker extends Toon {
 
 		this.active = false;
 
-		setTimeout(() => {
+		this.inactiveTimeoutID = setTimeout(() => {
+			this.inactiveTimeoutID = null;
 			this.active = true;
 
 			if(reset) this.mReset();
 		}, ms);
+	}
+
+	/**
+	 * Let go by the snail because a warrior killed the rider mid-meal: come back
+	 * where we are instead of respawning at the hive.
+	 */
+	freed() {
+		if(this.inactiveTimeoutID) {
+			clearTimeout(this.inactiveTimeoutID);
+			this.inactiveTimeoutID = null;
+		}
+
+		this.active = true;
 	}
 
 	/**
