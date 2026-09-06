@@ -5,6 +5,7 @@
 	<script src="/socket.io/socket.io.js"></script>
 	<script src="site.js"></script>
 	<script src="motion.js"></script>
+	<script src="hud.js"></script>
 	<link rel="stylesheet" href="style.css" />
 
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -38,8 +39,11 @@
 					</ul>
 				</div>
 				<div class="kqx-actions">
+					<input id="kqx-name" type="text" maxlength="12" autocomplete="off" spellcheck="false"
+						placeholder="Your name" oninput="kqxNameChanged()" />
 					<button id="player-ready" onclick="playerReady()" disabled>Ready</button>
 					<button id="kqx-menu-help" type="button" onclick="kqxHelp(true)">How to play</button>
+					<button id="kqx-menu-settings" type="button" onclick="kqxSettings(true)">Settings</button>
 				</div>
 			</div>
 		</div>
@@ -317,6 +321,7 @@
 		</div>
 	</div>
 	<button id="kqx-tab" type="button" onclick="kqxHelp(true)">? How to play</button>
+	<button id="kqx-settings-tab" type="button" onclick="kqxSettings(true)">Settings</button>
 </body>
 
 </html>

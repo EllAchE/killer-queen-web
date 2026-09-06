@@ -30,6 +30,29 @@ app.listen(port);
 
 const KQ = require("./game.js");
 
+/**
+ * Names are typed by whoever is on that laptop and land in everybody else's
+ * DOM, so nothing but printable characters survives and the tag stays short
+ * enough to sit over a 20px bee.
+ */
+const NAME_MAX = 12;
+function cleanName(raw) {
+	if(typeof raw != "string") return "";
+	return raw.replace(/[^\x20-\x7e]/g, "").replace(/\s+/g, " ").trim().slice(0, NAME_MAX);
+}
+
+/**
+ * Names go to everyone, unlike MENU_UPDATE, which only reaches users who have
+ * not picked a character yet -- in-game players need these too.
+ */
+function broadcastNames() {
+	var names = {};
+	KQ.Game.instance.users.forEach(u => {
+		if(u.toonId && u.name) names[u.toonId] = u.name;
+	});
+	io.sockets.emit(KQ.CONST.NAME_UPDATE, {names: names});
+}
+
 io.sockets.on("connection", socket => {
 	var user = {};
 	user.id = Date.now();
@@ -63,8 +86,10 @@ io.sockets.on("connection", socket => {
 
 		user.ready = false;
 		user.toonId = data.toonId;
+		user.name = cleanName(data.name);
 
 		KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.MENU_UPDATE));
+		broadcastNames();
 	});
 
 	socket.on(KQ.CONST.USER_READY, data => {
@@ -95,8 +120,20 @@ io.sockets.on("connection", socket => {
 		}
 	})
 
+	socket.on(KQ.CONST.USER_NAME, data => {
+		if(!user.toonId) return;
+		user.name = cleanName(data.name);
+		broadcastNames();
+	});
+
 	socket.on(KQ.CONST.KEY_UPDATE, data => {
 		user.keys = data;
+
+		// Relay for the keystroke HUD. Sent from here rather than the game loop
+		// because loop() splices ArrowUp back out to stop players holding jump,
+		// so by then user.keys no longer says what is actually being pressed.
+		if(user.toonId)
+			io.sockets.emit(KQ.CONST.KEY_STATE, {toonId: user.toonId, keys: data});
 	});
 
 	// todo: check game ready on disconnect (in case users are in lobby and one leaves);
@@ -115,6 +152,8 @@ io.sockets.on("connection", socket => {
 
 		console.log("DISCONNECT", KQ.Game.instance.users.length);
 
+		broadcastNames();
+
 		if(KQ.Game.instance.users.length)
 			KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.MENU_UPDATE));
 		else {
@@ -128,6 +167,9 @@ io.sockets.on("connection", socket => {
 
 new KQ.Game(); // singleton
 KQ.Game.instance.loadLevel("index.html", "style.css");
+
+// Registered down here because Game.instance does not exist any earlier.
+KQ.Game.instance.addEventListener(KQ.CONST.GAME_START, () => broadcastNames());
 
 console.log('server started');
 

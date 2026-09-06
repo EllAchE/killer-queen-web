@@ -10,6 +10,9 @@ const io = global.io; // use io from app.js
 const CONST = {
 	ALERT:"alert",
 	KEY_UPDATE:"key_update",
+	KEY_STATE:"key_state",   // which keys each player is holding, for the HUD
+	NAME_UPDATE:"name_update", // toonId -> the name that player typed
+	USER_NAME:"user_name",     // a player renaming themselves after picking
 	VIRTUAL_UPDATE:"virtual_update",
 	USER_CHARACTER_SELECT:"USER_CHARACTER_SELECT",
 	USER_READY:"user_ready",

@@ -24,6 +24,9 @@ window.onload = function() {
 	const CONST = {
     ALERT:"alert",
     KEY_UPDATE:"key_update",
+    KEY_STATE:"key_state",
+    NAME_UPDATE:"name_update",
+    USER_NAME:"user_name",
     VIRTUAL_UPDATE:"virtual_update",
     USER_CHARACTER_SELECT:"USER_CHARACTER_SELECT",
     USER_READY:"user_ready",
@@ -179,27 +182,41 @@ window.onload = function() {
   	window.alert(data.text);
   })
 
+  socket.on(CONST.NAME_UPDATE, data => {
+  	if(window.kqxHud) window.kqxHud.setNames(data.names);
+  });
+
+  socket.on(CONST.KEY_STATE, data => {
+  	if(window.kqxHud) window.kqxHud.setKeys(data.toonId, data.keys);
+  });
+
   var keys = [];
 
+  // The HUD is told locally as well as through the server so your own row
+  // reacts on the keypress rather than after a round trip.
+  var pushKeys = () => {
+  	socket.emit(CONST.KEY_UPDATE, keys);
+  	if(window.kqxHud) window.kqxHud.setKeys(game.characterSelected, keys.slice(0));
+  }
   var keyDown = key => {
   	if(keys.indexOf(key) < 0) {
 	  	keys.push(key);
-	  	socket.emit(CONST.KEY_UPDATE, keys);
+	  	pushKeys();
 	  }
   }
   var keyUp = key => {
   	var xo = keys.indexOf(key);
   	if(xo > -1) {
   		keys.splice(xo, 1);
-  		socket.emit(CONST.KEY_UPDATE, keys);
+  		pushKeys();
   	}
   }
   window.kqxClearKeys = () => {
   	keys.length = 0;
-  	socket.emit(CONST.KEY_UPDATE, keys);
+  	pushKeys();
   }
   window.addEventListener("keydown", function(event) {
-  	if(window.kqxHelpOpen) return;
+  	if(window.kqxHelpOpen || window.kqxSettingsOpen) return;
   	keyDown(event.key);
   });
   window.addEventListener("keyup", function(event) {
@@ -255,7 +272,21 @@ window.onload = function() {
 		document.getElementById("player-ready").disabled = false;
 		document.getElementById("player-ready").classList.remove("selected");
 
-		socket.emit(CONST.USER_CHARACTER_SELECT, {toonId:id});
+		var input = document.getElementById("kqx-name");
+		socket.emit(CONST.USER_CHARACTER_SELECT, {
+			toonId: id,
+			name: input ? input.value : ""
+		});
+		if(window.kqxHud) window.kqxHud.setMyToon(id);
+	}
+
+	// Its own event rather than re-sending the selection: the server's
+	// already-taken check compares against every user including you, so
+	// re-picking your own character would be refused.
+	window.kqxNameChanged = () => {
+		if(!game.characterSelected) return;
+		var input = document.getElementById("kqx-name");
+		socket.emit(CONST.USER_NAME, {name: input ? input.value : ""});
 	}
 
 	window.playerReady = () => {
