@@ -3,11 +3,16 @@
 Two parts: the features Logan asked for, specced against this codebase, and a
 survey of what the real arcade game has that this clone doesn't.
 
+**Shipped so far:** the fidelity fixes below (gaps 1-5, plus one more the tests
+turned up), player names, the keystroke overlay and settings panel, and map
+select with four boards. Each shipped section says what actually landed,
+including where the spec turned out to be wrong. The rest is still open.
+
 Codebase facts that shape most of the specs below:
 
-- `app.js:130` calls `loadLevel("index.html", "style.css")`. The server parses
-  the level out of the page itself with cheerio, reading each element's inline
-  `style` and its CSS rule. **The map is the HTML.**
+- `app.js` calls `loadLevel(name)`, which parses `maps/<name>.html` with cheerio,
+  reading each element's inline `style` and its CSS rule. **The map is the
+  HTML** — which is why a new board is a file, not code.
 - `app.js` holds exactly one `Game.instance` and one flat `users` array, and
   `game.js` reaches for `Game.instance` as a global singleton throughout.
 - `index.html` has **no doctype** — quirks mode is the only reason unitless
@@ -19,7 +24,7 @@ Codebase facts that shape most of the specs below:
 
 ## Part 1 — Requested features
 
-### 1. Map select — medium
+### 1. Map select — **shipped**
 
 The map is the page, so this is mostly a file-layout change:
 
@@ -44,7 +49,22 @@ Maps worth building, from the arcade roster:
 The two bonus maps are nearly free once map select exists, and they're the most
 fun-per-line on this list.
 
-### 2. Character names + name bar — small
+**What landed:** Day, Night and both bonus boards, picked from a `Map` dropdown
+in the lobby. Two things came out different from the spec above.
+
+- **Giant berry became an empty arena.** `berryCheck` requires `!this.warrior`,
+  so a board where everyone spawns armed is a board where nobody can carry the
+  berry. `bonus-warriors` drops the berry instead: no goals, no gates, no snail,
+  military win only.
+- **Tearing a level down had to be built first.** Level objects register on
+  `Game.instance`, `removeEventListener` is broken, and nothing recorded which
+  level a listener came from, so the old board would have kept running under the
+  new one. Listeners now carry an `owner` and `releaseLevel()` drops the level's.
+
+**Twilight is still unbuilt** — it is the one standard arcade map missing, and
+now costs one file.
+
+### 2. Character names + name bar — **shipped**
 
 - Menu already has `characterSelected(ele, toonId)` and `playerReady()`. Add a
   text input and widen the `USER_CHARACTER_SELECT` payload from `{toonId}` to
@@ -58,7 +78,13 @@ fun-per-line on this list.
 - Sanitize and cap length — names are the one place player input reaches other
   players' screens.
 
-### 3. Keystroke overlay + settings — small
+**What landed:** names ride a `NAME_UPDATE` broadcast of their own rather than
+`MENU_UPDATE`, which only reaches users who have not picked a character yet, so
+in-round players never saw it. Tags live in a runtime-built layer inside
+`#level` — a div written into `index.html` would have been parsed as a level
+object. Server-side, names are stripped to printable ASCII and capped at 12.
+
+### 3. Keystroke overlay + settings — **shipped**
 
 `site.js` already handles keydown/keyup and emits `KEY_UPDATE`, so:
 
@@ -70,6 +96,12 @@ fun-per-line on this list.
 - Settings: a gear button and a `localStorage`-backed prefs object — show/hide,
   opacity, corner, own-only vs. everyone. Same pattern would later cover
   volume, name display, and map preference.
+
+**What landed:** both scopes, plus corner and opacity, saved in `localStorage`.
+The relay is emitted from the `KEY_UPDATE` receive handler rather than the game
+loop, because the loop splices `ArrowUp` back out every tick to stop players
+holding jump — by the time the loop runs, `user.keys` no longer says what is
+being pressed.
 
 ### 4. Remote rooms — deferred (hard here)
 
@@ -101,7 +133,7 @@ berries, and drop-outs are replaced by a bot mid-match so play never stops.
 
 ## Part 2 — Survey: what the real game has that this doesn't
 
-### Fidelity gaps that are outright bugs
+### Fidelity gaps that are outright bugs — **1-5 shipped**
 
 1. **Queen gate conversion does nothing.** `Shrine.collission` sets
    `this.affiliation = o.team` when a queen touches a gate, but the worker
@@ -118,6 +150,20 @@ berries, and drop-outs are replaced by a bot mid-match so play never stops.
    the snail faster, which is most of the reason to take speed at all.
 5. **`Snail.collission` with a `SnailCage` reads `this.toon.team`** without a
    null check — an unridden snail touching the cage throws.
+
+Two more turned up while building the maps, both still open:
+
+6. **Either cage wins the snail.** `Snail.collission` hands
+   `WIN_SNAIL` to `this.toon.team` whichever cage it touched, so riding the
+   snail backwards into the *enemy* basket wins the game for you. The cages
+   already say who they belong to — `cage-blue`, `cage-gold` — and `SnailCage`
+   ignores it entirely. It needs a team off the id and one comparison.
+7. **Horizontal wrap applies to the whole board.** `visibilityCheck` wraps any
+   toon that leaves the side of the level, at any height. On the arcade's Day
+   map only the lower section wraps; the upper platforms are walled. Now that
+   `mapConfig.wrap` exists, this wants a band rather than a flag — something
+   like `wrap: {x: [380, 600]}` — so Night's vertical wrap and Twilight's
+   bottom-gap wrap can be expressed too.
 
 ### Missing mechanics
 
@@ -152,12 +198,19 @@ berries, and drop-outs are replaced by a bot mid-match so play never stops.
 
 ## Suggested order
 
-1. Audio, and the four small fidelity fixes (gate affiliation, warrior/snail,
-   warrior kills rider, speed-rides-faster) — cheapest, most felt.
-2. Names + keystroke overlay + a settings panel — the settings panel is the
-   hook everything later hangs on.
-3. HUD and spectator mode (fixes the stale-socket lobby deadlock too).
-4. Map select, then Night and the two bonus maps.
+Done: fidelity gaps 1-5, names, the keystroke overlay and settings panel, map
+select with Day, Night and both bonus boards.
+
+What's left, cheapest and most felt first:
+
+1. The two fidelity gaps the map work turned up — own-cage snail win, and
+   wrapping a band of the board rather than all of it.
+2. Audio. Still the highest atmosphere-per-hour item in the tree, and there is
+   currently none of it at all.
+3. HUD and spectator mode — berry count, queen lives and snail progress are all
+   already in server state, and spectating fixes the stale-socket lobby
+   deadlock on the way past.
+4. Twilight, now that a map is a file.
 5. Queen dive, berry kicking, best-of series.
 6. Re-enable and finish the bots.
 7. Remote rooms, as its own project.
