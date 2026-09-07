@@ -211,11 +211,35 @@
 					"</select></label>" +
 				'<label class="kqx-row">Overlay opacity ' +
 					'<input type="range" min="0.15" max="1" step="0.05" data-kqx="opacity"></label>' +
+
+				// The sound settings belong to audio.js, not to this file, which is
+				// why they carry a different attribute and save themselves down a
+				// different path. They are rendered here because there is one
+				// Settings panel and the volume is the first thing anyone looks for.
+				"<h2>Sound</h2>" +
+				'<label class="kqx-row">Music volume ' +
+					'<input type="range" min="0" max="1" step="0.05" data-kqx-audio="musicVolume"></label>' +
+				'<label class="kqx-row">Effects volume ' +
+					'<input type="range" min="0" max="1" step="0.05" data-kqx-audio="sfxVolume"></label>' +
+				'<label class="kqx-row">Match music ' +
+					'<select data-kqx-audio="musicTrack"></select></label>' +
+				'<p class="kqx-note">Want your own track? Drop an .mp3 into ' +
+					"<b>audio/music/custom/</b> on the machine running the game and it " +
+					"appears in that list. Nothing is uploaded and nothing is committed.</p>" +
+
 				'<p class="kqx-foot">Saved in this browser only. None of it changes the match.</p>' +
 			"</div>";
 		document.body.appendChild(d);
 
 		d.addEventListener("change", function(e) {
+			var audioKey = e.target.getAttribute("data-kqx-audio");
+			if(audioKey) {
+				if(window.kqxAudio)
+					window.kqxAudio.set(audioKey,
+						e.target.type === "range" ? Number(e.target.value) : e.target.value);
+				return;
+			}
+
 			var key = e.target.getAttribute("data-kqx");
 			if(!key) return;
 			if(e.target.type === "checkbox") settings[key] = e.target.checked;
@@ -237,6 +261,32 @@
 			if(!el) return;
 			if(el.type === "checkbox") el.checked = !!settings[key];
 			else el.value = settings[key];
+		});
+
+		if(!window.kqxAudio) return;
+
+		var audio = window.kqxAudio.settings();
+		Object.keys(audio).forEach(function(key) {
+			var el = d.querySelector('[data-kqx-audio="' + key + '"]');
+			if(el && el.type === "range") el.value = audio[key];
+		});
+
+		// The track list is re-read every time the panel opens, which is what
+		// makes a file dropped into custom/ show up without reloading the tab.
+		window.kqxAudio.refresh().then(function() {
+			var sel = d.querySelector('[data-kqx-audio="musicTrack"]');
+			if(!sel) return;
+
+			var html = '<option value="off">None</option>';
+			window.kqxAudio.tracks().forEach(function(t) {
+				html += '<option value="' + escapeHtml(t.id) + '">' + escapeHtml(t.label) + "</option>";
+			});
+			sel.innerHTML = html;
+
+			// A saved id whose file has since been deleted matches no option, and
+			// the select would quietly show the first one instead of saying so.
+			sel.value = window.kqxAudio.settings().musicTrack;
+			if(!sel.value) sel.value = "off";
 		});
 	}
 

@@ -711,6 +711,26 @@ html, body {
 	letter-spacing: 6px;
 	color: #8fb4f5;
 }
+#kqx-settings h2 {
+	margin: 22px 0 6px;
+	font-size: 12px;
+	letter-spacing: 3px;
+	text-transform: uppercase;
+	color: #8a86a6;
+	border-top: 1px solid #302d44;
+	padding-top: 16px;
+}
+#kqx-settings .kqx-note {
+	margin: 6px 0 0;
+	font-size: 12px;
+	line-height: 1.5;
+	color: #7d7a96;
+}
+#kqx-settings .kqx-note b {
+	color: #a9a5c4;
+	font-weight: normal;
+	font-family: Menlo, Consolas, monospace;
+}
 #kqx-settings .kqx-row {
 	display: flex;
 	align-items: center;

@@ -25,6 +25,7 @@ window.onload = function() {
     ALERT:"alert",
     KEY_UPDATE:"key_update",
     KEY_STATE:"key_state",
+    SFX:"sfx",
     NAME_UPDATE:"name_update",
     USER_NAME:"user_name",
     VIRTUAL_UPDATE:"virtual_update",
@@ -69,10 +70,18 @@ window.onload = function() {
 
     let d = CONST.GAME_DISPLAY_WIN_DELAY;
 
+    // The match music stops on the win itself rather than on the screen a
+    // second and a half later, so the win jingle the server just fired plays
+    // into a gap instead of over a level loop.
+    if(window.kqxAudio) window.kqxAudio.scene(null);
+
     // delay before showing the game over screen
     window.setTimeout(() => {
       let div = document.getElementById("game-over");
       div.classList.remove("hide");
+
+      // Up with the screen, which is what the ending theme is scored for.
+      if(window.kqxAudio) window.kqxAudio.scene("victory");
 
       document.getElementById("win-text").innerHTML = window.kqxWinText(data);
 
@@ -103,11 +112,15 @@ window.onload = function() {
   socket.on(CONST.GAME_RESET, data => {
   	console.log("!! GAME RESET")
 
+  	if(window.kqxAudio) window.kqxAudio.scene("lobby");
+
   	document.getElementById('menu').classList.remove("hide");
     document.getElementById('game-over').classList.add("hide");
   });
 
   socket.on(CONST.GAME_START, data => {
+  	if(window.kqxAudio) window.kqxAudio.scene("match");
+
   	document.getElementById('game-over').classList.add("hide");
   	var list = document.getElementsByTagName("li");
   	for(var i in list) {
@@ -239,6 +252,15 @@ window.onload = function() {
 
   socket.on(CONST.KEY_STATE, data => {
   	if(window.kqxHud) window.kqxHud.setKeys(data.toonId, data.keys);
+  });
+
+  /**
+   * Sound cues. These have to come over the wire because VIRTUAL_UPDATE is
+   * only positions and flags -- from here a berry landing in a slot and a
+   * berry carried past one look identical.
+   */
+  socket.on(CONST.SFX, data => {
+  	if(window.kqxAudio && data) window.kqxAudio.cue(data.cue);
   });
 
   var keys = [];
