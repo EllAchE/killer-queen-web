@@ -1914,6 +1914,23 @@ class Game extends EventDispatcher {
 		return Game._instance;
 	}
 
+	/**
+	 * Whether the lobby has everyone it is waiting on.
+	 *
+	 * Only users who picked a character count. A connected socket that never
+	 * picked one is watching, and it used to hold the lobby shut: the gate
+	 * asked every user for a toonId, and GAME_RESET nulls toonId on all of
+	 * them, so one forgotten tab left open in a background window blocked
+	 * every round after the next reset, with nothing on screen saying why.
+	 *
+	 * An empty lobby is not ready. Nobody has picked, so there is no round to
+	 * start and the countdown would run against an empty board.
+	 */
+	static readyToStart(users) {
+		var players = users.filter(u => u.toonId);
+		return players.length > 0 && players.every(u => u.ready);
+	}
+
 	static emptyLevel() {
 		return {
 			width: 800, // todo: pull in from this.loadLevel()

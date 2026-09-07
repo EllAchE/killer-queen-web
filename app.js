@@ -120,12 +120,9 @@ io.sockets.on("connection", socket => {
 			}
 
 			// if we're here then no game is in progress -jkr
-			var gameReady = true;
-			if(KQ.Game.instance.users.forEach(u => {
-				if(!u.toonId || !u.ready) gameReady = false;
-			}));
+			var gameReady = KQ.Game.readyToStart(KQ.Game.instance.users);
 
-			// once all users are ready, start the countdown -jkr
+			// once every player is ready, start the countdown -jkr
 			if(gameReady) {
 				KQ.Game.instance.countDownStartTime = Date.now();
 				KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.GAME_COUNTDOWN));

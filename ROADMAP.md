@@ -187,19 +187,24 @@ Two more turned up while building the maps. The first is now fixed:
    fun: berry deposit chimes, the queen-death sting, the snail, the announcer.
    Highest atmosphere-per-hour item on this list.
 10. **No spectator mode.** Nearly free — a client that connects, never picks a
-    toon, and just renders. Currently *impossible*, because `app.js:87`
-    (`if(!u.toonId || !u.ready) gameReady = false;`) requires every connected
-    socket to be ready before a round starts, so one spectator deadlocks the
-    lobby.
+    toon, and just renders. It used to be *impossible*: the readiness gate
+    required every connected socket to have a toon and be ready, so one
+    spectator deadlocked the lobby.
 
-    The failure is **delayed, which is what makes it confusing**. Mid-round the
+    That gate is now `Game.readyToStart`, which waits only on users who picked
+    a character, and `test-lobby.js` covers it. What is left is the client
+    side — a spectator has no way to say "just show me the game", and no view
+    that renders the match without a toon of its own.
+
+    The old failure was **delayed, which is what made it confusing**, and is
+    worth recording because the same shape will recur. Mid-round the
     `USER_READY` handler short-circuits on `if(gameInProgress) { ...; return; }`
-    before it ever reaches that loop, so a spectator tab opened during a live
-    match is harmless and looks fine. But `GAME_RESET` nulls `toonId` on *every*
-    user, so from the next reset onward that same tab — and any stale socket
-    nobody remembers leaving open — blocks every round, with no message saying
-    why. Hit while verifying this work: a forgotten browser tab held the lobby
-    shut. Worth fixing ahead of the presentation items on that alone.
+    before it ever reached the gate, so a spectator tab opened during a live
+    match was harmless and looked fine. But `GAME_RESET` nulls `toonId` on
+    *every* user, so from the next reset onward that same tab — and any stale
+    socket nobody remembered leaving open — blocked every round with no message
+    saying why. It was hit while verifying this work: a forgotten browser tab
+    held the lobby shut.
 11. **No HUD.** Berry count per team, queen lives remaining, and snail progress
     are all in server state and none of them are on screen.
 
@@ -217,8 +222,8 @@ What's left, cheapest and most felt first:
 2. Audio. Still the highest atmosphere-per-hour item in the tree, and there is
    currently none of it at all.
 3. HUD and spectator mode — berry count, queen lives and snail progress are all
-   already in server state, and spectating fixes the stale-socket lobby
-   deadlock on the way past.
+   already in server state. The lobby deadlock that used to make spectating
+   impossible is fixed, so what remains is the client view.
 4. Twilight, now that a map is a file.
 5. Queen dive, berry kicking, best-of series.
 6. Re-enable and finish the bots.
