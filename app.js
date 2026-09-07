@@ -5,18 +5,66 @@ process.on('warning', e => console.warn(e.stack));
 
 const http = require('http');
 const fs = require('fs');
+const path = require('path');
 global.fs = fs;
 const port = process.env.PORT || 3000;
+
+/**
+ * Everything used to be served as text/html, which browsers forgave for
+ * scripts and images. Audio is where that stops working: a music loop
+ * labelled text/html is not something <audio> will agree to play.
+ */
+const MIME = {
+	".html": "text/html",
+	".js":   "text/javascript",
+	".css":  "text/css",
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".ico":  "image/x-icon",
+	".mp3":  "audio/mpeg",
+	".ogg":  "audio/ogg",
+	".wav":  "audio/wav",
+	".json": "application/json"
+};
+
+// Resolved once so the traversal check below compares against a real path
+// even if the repo is reached through a symlink.
+const ROOT = fs.realpathSync(__dirname);
+
 const app = http.createServer(function(req, res) {
-	if(!req.url) req.url = "index.html";
-	if(req.url == "/") req.url = "/index.html";
+	var url = (req.url || "/").split("?")[0].split("#")[0];
+	if(url == "/") url = "/index.html";
 
-	var headers = {'Content-Type': 'text/html'};
+	// Decoded before the traversal check, or %2e%2e would walk straight past it.
+	try { url = decodeURIComponent(url); }
+	catch(e) { res.writeHead(400); return res.end(); }
 
-	if(req.url.indexOf("css") >= 0)
-		headers = {'Content-Type': 'text/css'};
-    res.writeHead(200, headers);
-    res.end(fs.readFileSync(__dirname + req.url));
+	// This used to be fs.readFileSync(__dirname + req.url), so a request for
+	// /../../../etc/passwd read it out to anyone on the network. resolve()
+	// collapses the "..", and the prefix test is what actually refuses a climb.
+	var file = path.resolve(ROOT, "." + url);
+	if(file != ROOT && !file.startsWith(ROOT + path.sep)) {
+		res.writeHead(403);
+		return res.end();
+	}
+
+	var type = MIME[path.extname(file).toLowerCase()] || "application/octet-stream";
+
+	// Streamed rather than read whole, and async rather than Sync: this is the
+	// same process and the same event loop as the game, so a multi-megabyte
+	// track read the old way stalled every player's match to serve one page.
+	fs.stat(file, function(err, st) {
+		if(err || !st.isFile()) {
+			res.writeHead(404, {"Content-Type": "text/plain"});
+			return res.end("not found");
+		}
+
+		res.writeHead(200, {"Content-Type": type, "Content-Length": st.size});
+		fs.createReadStream(file)
+			.on("error", function() { res.end(); })
+			.pipe(res);
+	});
 });
 const io = require('socket.io')(app);
 global.io = io;
