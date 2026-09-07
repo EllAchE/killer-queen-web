@@ -4,8 +4,8 @@ Two parts: the features Logan asked for, specced against this codebase, and a
 survey of what the real arcade game has that this clone doesn't.
 
 **Shipped so far:** the fidelity fixes below (gaps 1-5, plus one more the tests
-turned up), player names, the keystroke overlay and settings panel, and map
-select with four boards. Each shipped section says what actually landed,
+turned up), player names, the keystroke overlay and settings panel, map select
+with four boards, and music and sound effects. Each shipped section says what actually landed,
 including where the spec turned out to be wrong. The rest is still open.
 
 Codebase facts that shape most of the specs below:
@@ -182,10 +182,36 @@ Two more turned up while building the maps. The first is now fixed:
 
 ### Missing presentation
 
-9. **There is no audio at all** — zero `Audio`, `.mp3`, or `.wav` anywhere in
-   the tree. The arcade game's sound is a big part of why it reads as chaotic
-   fun: berry deposit chimes, the queen-death sting, the snail, the announcer.
-   Highest atmosphere-per-hour item on this list.
+9. ~~**There is no audio at all**~~ — **shipped.** Music and effects, all of it
+   CC0, sourced and credited in `audio/CREDITS.md`.
+
+   **What landed:** five music tracks (a lobby loop, three selectable match
+   tracks, an ending theme) and twelve effects, each built to both Ogg Opus and
+   MP3 by `tools/build-audio.sh` and picked between at runtime with
+   `canPlayType`. Opus loops seamlessly because it stores encoder delay as a
+   pre-skip; MP3 does not, and is carried only because it plays everywhere.
+
+   **The thing that shaped the design:** the client receives nothing but
+   `VIRTUAL_UPDATE` — positions and flags — so from the browser's side a berry
+   banking in a slot and a berry carried past one are the same two numbers
+   moving. There was no event to listen for. Effects therefore needed a new
+   wire channel, `CONST.SFX`, emitted from `Game.sfx()` at the handful of
+   places in `game.js` where the distinction is still known. `test-audio.js`
+   drives each of those places and also checks every cue name in the source
+   against the files on disk, because a cue that fires under a name no file
+   answers to fails silently.
+
+   **"Never Gonna Give You Up" is a drop-in slot, not a file.** Two live
+   copyrights attach to it — the 1987 composition and Astley's recording — and
+   a CC licence only covers what the uploader owns, so even a CC0 chiptune
+   cover clears the arranger and leaves the composition untouched. Instead,
+   `app.js` scans `audio/music/custom/` on every request to
+   `/audio/tracks.json`, so anything dropped in there is in the Settings
+   picker on the next open. The directory ignores its own contents.
+
+   Serving it needed `app.js` fixed first: everything had been sent as
+   `text/html`, reads were `readFileSync` on the game's own event loop, and
+   `__dirname + req.url` was an unchecked path traversal.
 10. **No spectator mode.** Nearly free — a client that connects, never picks a
     toon, and just renders. It used to be *impossible*: the readiness gate
     required every connected socket to have a toon and be ready, so one
@@ -213,21 +239,19 @@ Two more turned up while building the maps. The first is now fixed:
 ## Suggested order
 
 Done: fidelity gaps 1-5, names, the keystroke overlay and settings panel, map
-select with Day, Night and both bonus boards.
+select with Day, Night and both bonus boards, and audio.
 
 What's left, cheapest and most felt first:
 
 1. Wrapping a band of the board rather than all of it (item 7 above). The
    other gap the map work turned up, the own-cage snail win, is fixed.
-2. Audio. Still the highest atmosphere-per-hour item in the tree, and there is
-   currently none of it at all.
-3. HUD and spectator mode — berry count, queen lives and snail progress are all
+2. HUD and spectator mode — berry count, queen lives and snail progress are all
    already in server state. The lobby deadlock that used to make spectating
    impossible is fixed, so what remains is the client view.
-4. Twilight, now that a map is a file.
-5. Queen dive, berry kicking, best-of series.
-6. Re-enable and finish the bots.
-7. Remote rooms, as its own project.
+3. Twilight, now that a map is a file.
+4. Queen dive, berry kicking, best-of series.
+5. Re-enable and finish the bots.
+6. Remote rooms, as its own project.
 
 ## Sources
 
