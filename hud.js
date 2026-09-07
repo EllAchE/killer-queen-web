@@ -17,7 +17,6 @@
 	var DEFAULTS = {
 		names: true,
 		keys: true,
-		keysScope: "me",      // "me" | "all"
 		keysCorner: "bl",     // tl | tr | bl | br
 		opacity: 0.55
 	};
@@ -117,8 +116,9 @@
 		}
 		p.classList.remove("kqx-off");
 
-		var ids = Object.keys(keys).sort();
-		if(settings.keysScope === "me") ids = myToonId ? [myToonId] : [];
+		// Only ever your own row. What the other hive is pressing is theirs,
+		// and reading it off the screen would be cheating, not a HUD.
+		var ids = myToonId ? [myToonId] : [];
 
 		var html = "";
 		ids.forEach(function(id) {
@@ -202,11 +202,6 @@
 				"<h1>Settings</h1>" +
 				'<label class="kqx-row"><input type="checkbox" data-kqx="names"> Show player names over characters</label>' +
 				'<label class="kqx-row"><input type="checkbox" data-kqx="keys"> Show a keystroke overlay</label>' +
-				'<label class="kqx-row">Keystrokes for ' +
-					'<select data-kqx="keysScope">' +
-						'<option value="me">just me</option>' +
-						'<option value="all">everyone</option>' +
-					"</select></label>" +
 				'<label class="kqx-row">Overlay corner ' +
 					'<select data-kqx="keysCorner">' +
 						'<option value="bl">bottom left</option>' +

@@ -14,28 +14,27 @@
 <body>
 	<div id="game">
 		<div id="menu" class="hide">
-			<div class="kqx-veil"></div>
 			<div class="teams">
 				<h1 class="kqx-title">KILLER QUEEN</h1>
-				<p class="kqx-sub">Pick a character, then press Ready. The round starts once every connected tab is ready. Nobody is played by the computer, so both Queens should be taken by a person.</p>
+				<p class="kqx-sub">Pick a character, then Ready. Both Queens want a human.</p>
 				<div class="team blue">
 					<h2 class="kqx-hive-a">Blue Hive</h2>
 					<ul>
-						<li id="menu-teamBlue-queen" onclick="characterSelected(this, 'teamBlue-queen')"><span class="kqx-role">Queen</span><span class="kqx-hint">flies and fights from the start &middot; 3 eggs</span></li>
-						<li id="menu-teamBlue-worker0" onclick="characterSelected(this, 'teamBlue-worker0')"><span class="kqx-role">Worker 1</span><span class="kqx-hint">carries berries, rides the snail</span></li>
-						<li id="menu-teamBlue-worker1" onclick="characterSelected(this, 'teamBlue-worker1')"><span class="kqx-role">Worker 2</span><span class="kqx-hint">carries berries, rides the snail</span></li>
-						<li id="menu-teamBlue-worker2" onclick="characterSelected(this, 'teamBlue-worker2')"><span class="kqx-role">Worker 3</span><span class="kqx-hint">upgrade at a shrine to fight</span></li>
-						<li id="menu-teamBlue-worker3" onclick="characterSelected(this, 'teamBlue-worker3')"><span class="kqx-role">Worker 4</span><span class="kqx-hint">upgrade at a shrine to fight</span></li>
+						<li id="menu-teamBlue-queen" onclick="characterSelected(this, 'teamBlue-queen')"><span class="kqx-role">Queen</span></li>
+						<li id="menu-teamBlue-worker0" onclick="characterSelected(this, 'teamBlue-worker0')"><span class="kqx-role">Worker 1</span></li>
+						<li id="menu-teamBlue-worker1" onclick="characterSelected(this, 'teamBlue-worker1')"><span class="kqx-role">Worker 2</span></li>
+						<li id="menu-teamBlue-worker2" onclick="characterSelected(this, 'teamBlue-worker2')"><span class="kqx-role">Worker 3</span></li>
+						<li id="menu-teamBlue-worker3" onclick="characterSelected(this, 'teamBlue-worker3')"><span class="kqx-role">Worker 4</span></li>
 					</ul>
 				</div>
 				<div class="team gold">
 					<h2 class="kqx-hive-b">Gold Hive</h2>
 					<ul>
-						<li id="menu-teamGold-queen" onclick="characterSelected(this, 'teamGold-queen')"><span class="kqx-role">Queen</span><span class="kqx-hint">flies and fights from the start &middot; 3 eggs</span></li>
-						<li id="menu-teamGold-worker0" onclick="characterSelected(this, 'teamGold-worker0')"><span class="kqx-role">Worker 1</span><span class="kqx-hint">carries berries, rides the snail</span></li>
-						<li id="menu-teamGold-worker1" onclick="characterSelected(this, 'teamGold-worker1')"><span class="kqx-role">Worker 2</span><span class="kqx-hint">carries berries, rides the snail</span></li>
-						<li id="menu-teamGold-worker2" onclick="characterSelected(this, 'teamGold-worker2')"><span class="kqx-role">Worker 3</span><span class="kqx-hint">upgrade at a shrine to fight</span></li>
-						<li id="menu-teamGold-worker3" onclick="characterSelected(this, 'teamGold-worker3')"><span class="kqx-role">Worker 4</span><span class="kqx-hint">upgrade at a shrine to fight</span></li>
+						<li id="menu-teamGold-queen" onclick="characterSelected(this, 'teamGold-queen')"><span class="kqx-role">Queen</span></li>
+						<li id="menu-teamGold-worker0" onclick="characterSelected(this, 'teamGold-worker0')"><span class="kqx-role">Worker 1</span></li>
+						<li id="menu-teamGold-worker1" onclick="characterSelected(this, 'teamGold-worker1')"><span class="kqx-role">Worker 2</span></li>
+						<li id="menu-teamGold-worker2" onclick="characterSelected(this, 'teamGold-worker2')"><span class="kqx-role">Worker 3</span></li>
+						<li id="menu-teamGold-worker3" onclick="characterSelected(this, 'teamGold-worker3')"><span class="kqx-role">Worker 4</span></li>
 					</ul>
 				</div>
 				<div class="kqx-map-pick">
@@ -47,8 +46,6 @@
 					<input id="kqx-name" type="text" maxlength="12" autocomplete="off" spellcheck="false"
 						placeholder="Your name" oninput="kqxNameChanged()" />
 					<button id="player-ready" onclick="playerReady()" disabled>Ready</button>
-					<button id="kqx-menu-help" type="button" onclick="kqxHelp(true)">How to play</button>
-					<button id="kqx-menu-settings" type="button" onclick="kqxSettings(true)">Settings</button>
 				</div>
 			</div>
 		</div>

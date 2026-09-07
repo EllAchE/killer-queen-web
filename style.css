@@ -57,13 +57,6 @@ html, body {
 	z-index: 99;
 	font-family: "Trebuchet MS", "Segoe UI", Avenir, Helvetica, sans-serif;
 }
-#menu .kqx-veil {
-	position: absolute;
-	width: 100%;
-	height: 100%;
-	background: #14121c;
-	opacity: 0.95;
-}
 #menu .teams {
 	position: absolute;
 	width: 100%;
@@ -72,6 +65,9 @@ html, body {
 	padding: 26px 24px;
 	text-align: center;
 	color: #e8e6f0;
+	/* No backdrop: nothing here should hide the board being picked. Every
+	   piece of text below carries its own shadow instead. */
+	text-shadow: 0 1px 3px #000, 0 0 12px #000;
 }
 #menu .kqx-title {
 	margin: 0;
@@ -82,11 +78,17 @@ html, body {
 	text-shadow: 0 3px 0 #7a4b12;
 }
 #menu .kqx-sub {
-	margin: 8px auto 20px;
+	/* fit-content, not inline-block: the teams below are inline-block, so an
+	   inline sub joins their line box and wrings Gold onto a second row. */
+	width: fit-content;
+	margin: 6px auto 22px;
 	max-width: 540px;
+	padding: 5px 14px;
+	border-radius: 999px;
+	background: rgba(16, 14, 26, 0.6);
 	font-size: 13px;
-	line-height: 1.55;
-	color: #a9a6bd;
+	color: #d5d2e4;
+	text-shadow: none;
 }
 #menu .team {
 	display: inline-block;
@@ -113,9 +115,9 @@ html, body {
 	margin: 0 0 6px;
 	padding: 7px 11px;
 	border-radius: 6px;
-	border: 1px solid #3a3750;
-	background: #1d1a2a;
-	color: #cfcce0;
+	border: 1px solid rgba(140, 134, 175, 0.5);
+	background: rgba(24, 21, 36, 0.66);
+	color: #e4e1f2;
 	width: auto;
 	height: auto;
 	font-size: 15px;
@@ -127,12 +129,6 @@ html, body {
 	display: block;
 	font-weight: 700;
 	letter-spacing: 1px;
-}
-#menu li .kqx-hint {
-	display: block;
-	font-size: 11px;
-	line-height: 1.4;
-	color: #8d8aa3;
 }
 #menu li:hover {
 	border-color: #7d7899;
@@ -147,7 +143,6 @@ html, body {
 	color: #fff !important;
 	border-color: #fff;
 }
-#menu li.selected .kqx-hint { color: #e2e0ee; }
 #menu li.taken {
 	opacity: 0.3;
 	cursor: not-allowed;
@@ -294,14 +289,18 @@ html, body {
 	font-size: 16px;
 	letter-spacing: 3px;
 	text-transform: uppercase;
-	background: none;
-	color: #cfcce0;
-	border: 2px solid #4a4763;
+	background: rgba(10, 9, 14, 0.72);
+	color: #e2dff0;
+	border: 2px solid #6a6689;
 	border-radius: 6px;
 	padding: 10px 24px;
+	text-shadow: none;
 }
+/* 0.25 read as "broken" against a bright sky; it still has to look off-limits
+   until a character is picked, but legibly so. */
 #player-ready:disabled {
-	opacity: 0.25;
+	opacity: 0.5;
+	color: #8b87a5;
 	pointer-events: none;
 }
 #player-ready:hover {
@@ -561,9 +560,9 @@ html, body {
 	font-family: inherit;
 	font-size: 16px;
 	letter-spacing: 2px;
-	background: rgba(10, 9, 14, 0.6);
-	color: #cfcce0;
-	border: 1px solid #4a4763;
+	background: rgba(10, 9, 14, 0.85);
+	color: #e8e6f2;
+	border: 1px solid #6a6689;
 	border-radius: 6px;
 	padding: 10px 14px;
 	width: 170px;
@@ -574,7 +573,7 @@ html, body {
 	color: #ffffff;
 }
 #menu #kqx-name::placeholder {
-	color: #6d6a85;
+	color: #8b87a5;
 	letter-spacing: 2px;
 }
 
@@ -763,10 +762,20 @@ html, body {
 	color: #cbd5e1;
 }
 
+/* Its own plate rather than a full-screen veil: the point of the lobby is to
+   see the board you are picking, so only the strip under the words is dimmed. */
+.kqx-map-pick {
+	padding: 7px 12px;
+	border-radius: 8px;
+	background: rgba(16, 14, 26, 0.72);
+	border: 1px solid rgba(140, 134, 175, 0.35);
+	text-shadow: none;
+}
+
 .kqx-map-pick label {
 	text-transform: uppercase;
 	letter-spacing: 1px;
-	color: #94a3b8;
+	color: #b6c2d4;
 }
 
 #kqx-map {
@@ -783,7 +792,7 @@ html, body {
 #kqx-map-blurb {
 	flex: 1;
 	min-width: 0;
-	color: #94a3b8;
+	color: #b9c4d4;
 	font-size: 10px;
 	line-height: 1.4;
 }

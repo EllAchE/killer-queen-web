@@ -167,11 +167,15 @@ io.sockets.on("connection", socket => {
 	socket.on(KQ.CONST.KEY_UPDATE, data => {
 		user.keys = data;
 
-		// Relay for the keystroke HUD. Sent from here rather than the game loop
-		// because loop() splices ArrowUp back out to stop players holding jump,
-		// so by then user.keys no longer says what is actually being pressed.
+		// Relay for the keystroke HUD. Sent back to this socket only: the
+		// overlay shows you your own inputs, and broadcasting everyone's would
+		// put the other hive's timing on your screen.
+		//
+		// Sent from here rather than the game loop because loop() splices
+		// ArrowUp back out to stop players holding jump, so by then user.keys
+		// no longer says what is actually being pressed.
 		if(user.toonId)
-			io.sockets.emit(KQ.CONST.KEY_STATE, {toonId: user.toonId, keys: data});
+			socket.emit(KQ.CONST.KEY_STATE, {toonId: user.toonId, keys: data});
 	});
 
 	// todo: check game ready on disconnect (in case users are in lobby and one leaves);
