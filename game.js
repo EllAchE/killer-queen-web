@@ -32,6 +32,7 @@ const CONST = {
 	DIRECTION_LEFT:"direction-left",
 	DIRECTION_DOWN:"direction-down",
 	MENU_UPDATE:"menu_update",
+	SFX:"sfx",                       // a cue name for the browser to play
 	MAP_UPDATE:"map_update",         // which map the lobby is on now
 	USER_MAP_SELECT:"user_map_select", // a player picking a different one
 	KEY_UP:"ArrowUp",
@@ -552,6 +553,8 @@ class Egg extends Updateable {
 
 		console.log("!! HATCH", this.id)
 
+		Game.instance.sfx("egg-hatch");
+
 		this.top = CONST.ELEMENT_OFFSCREEN_OFFSET.top;
 		this.left = CONST.ELEMENT_OFFSCREEN_OFFSET.left;
 	}
@@ -709,6 +712,10 @@ class Snail extends Updateable {
 				if(o.warrior) return;
 
 				this.toon = o;
+
+				// Guarded by the !this.toon above, so this is the moment of
+				// mounting and not every frame of the ride.
+				Game.instance.sfx("snail-ride");
 			} else {
 				if(o.team != this.toon.team) {
 					if(o.warrior) {
@@ -720,6 +727,8 @@ class Snail extends Updateable {
 					}
 					else if(this.swallowing === false) {
 						//swallow the enemy
+						Game.instance.sfx("snail-eat");
+
 						var e = new Event(CONST.SNAIL_ATTACK);
 						e.extra = {toon:o};
 						Game.instance.dispatchEvent(e);
@@ -843,6 +852,12 @@ class Shrine extends Updateable {
 					console.log("POWER UP", this.id, o.id);
 
 					this.inUse = true;
+
+					// Two different upgrades, so two different sounds: from
+					// across the board the gate you hear is the thing you need
+					// to know about.
+					Game.instance.sfx(this instanceof ShrineWarrior ? "warrior-gate" : "speed-gate");
+
 					var e = new Event(CONST.SHRINE_POWER_UP);
 					e.extra = {toon:o, shrine:this};
 					Game.instance.dispatchEvent(e);
@@ -911,6 +926,8 @@ class Goal extends Virtual {
 		if(o instanceof Berry) {
 			this.berry = o; // WTF CRASH
 			// this.berry = true;
+
+			Game.instance.sfx("berry-deposit");
 		}
 
 		if(Goal.checkWin(this.team)) {
@@ -1155,6 +1172,11 @@ class Toon extends Updateable {
 
 	attacked() {
 		if(this.Invulnerable || !this.active) return;
+
+		// Every death funnels through here, including the Queen's -- hers only
+		// reaches this far while she still has an egg left, because the one
+		// that does not is a military win and never calls up.
+		Game.instance.sfx(this instanceof Queen ? "queen-death" : "toon-death");
 
 		var e = new Event(CONST.ATTACKED);
 		e.extra = {toon:this};
@@ -1471,6 +1493,12 @@ class Worker extends Toon {
 			}
 
 			this.berry = event.extra.berry;
+
+			// Here rather than at the dispatch in berryCheck: that loop tests
+			// every berry against a toon who only re-checks its hands once, so
+			// two overlapping berries raise two events and this rejects the
+			// second. Sounding it there would play the blip twice.
+			Game.instance.sfx("berry-pickup");
 		})
 	}
 
@@ -1960,8 +1988,31 @@ class Game extends EventDispatcher {
 	 * @team string the winning team
 	 * @focus Element the item to zoom on during game over screen (needs top & left)
 	 */
+	/**
+	 * Every sound the browser cannot work out on its own.
+	 *
+	 * It has to be told, because the only thing it receives during a match is
+	 * VIRTUAL_UPDATE -- a stream of positions and flags. From there a berry
+	 * landing in a slot and a berry being carried past one are the same two
+	 * numbers moving, so there is nothing to listen for. These cues are sent
+	 * from the handful of places in here where the distinction is still known.
+	 *
+	 * Everyone hears everything: the arcade cabinet has one speaker and ten
+	 * people around it, and a berry banking in the far hive is information you
+	 * are meant to have.
+	 */
+	sfx(cue) {
+		// The physics tests drive the game with no sockets attached.
+		if(!io || !io.sockets) return;
+
+		io.sockets.emit(CONST.SFX, {cue: cue});
+	}
+
 	win(type,team,focus) {
 		console.log("WIN", type, team, focus.id);
+
+		// win_military -> win-military, which is the file name in audio/sfx.
+		Game.instance.sfx(type.replace(/_/g, "-"));
 
 		let f = {
 			top: focus.top,
