@@ -32,6 +32,60 @@ const MIME = {
 // even if the repo is reached through a symlink.
 const ROOT = fs.realpathSync(__dirname);
 
+const PLAYABLE = [".ogg", ".mp3", ".m4a", ".wav"];
+
+// The three that ship. Anything else found is somebody's own file and is
+// labelled with its filename.
+const TRACK_LABELS = {
+	"match-1": "Chiptune — Level 1",
+	"match-2": "Chiptune — Level 2",
+	"match-3": "Chiptune — Level 3"
+};
+
+/**
+ * The match music the picker offers.
+ *
+ * Read off the disk rather than hardcoded, which is the whole mechanism
+ * behind audio/music/custom/: drop an mp3 in there and it is in the list next
+ * time somebody opens Settings. Nothing to edit, nothing to rebuild, and
+ * nothing of yours ends up committed.
+ *
+ * One entry per track, carrying every format found for it, because which one
+ * to fetch is the browser's call and not ours.
+ */
+function musicTracks() {
+	var found = {};   // id -> {id, label, srcs:[]}
+
+	function scan(dir, prefix, isCustom) {
+		var names;
+		try { names = fs.readdirSync(path.join(ROOT, dir)); }
+		catch(e) { return; }   // custom/ is allowed not to exist
+
+		names.sort().forEach(function(name) {
+			var ext = path.extname(name).toLowerCase();
+			if(PLAYABLE.indexOf(ext) < 0) return;
+
+			var id = path.basename(name, ext);
+			// Shipped music that is not selectable: the lobby loop and the
+			// game-over theme both play on their own cue.
+			if(!isCustom && !/^match-/.test(id)) return;
+
+			var key = isCustom ? "custom/" + id : id;
+			if(!found[key]) found[key] = {
+				id: key,
+				label: isCustom ? id : (TRACK_LABELS[id] || id),
+				srcs: []
+			};
+			found[key].srcs.push(prefix + name);
+		});
+	}
+
+	scan("audio/music", "audio/music/", false);
+	scan("audio/music/custom", "audio/music/custom/", true);
+
+	return Object.keys(found).map(function(k) { return found[k]; });
+}
+
 const app = http.createServer(function(req, res) {
 	var url = (req.url || "/").split("?")[0].split("#")[0];
 	if(url == "/") url = "/index.html";
@@ -39,6 +93,19 @@ const app = http.createServer(function(req, res) {
 	// Decoded before the traversal check, or %2e%2e would walk straight past it.
 	try { url = decodeURIComponent(url); }
 	catch(e) { res.writeHead(400); return res.end(); }
+
+	// Listed rather than served, so it has to be answered ahead of the file
+	// handler. No-store because the point of it is picking up a file that was
+	// dropped in after the page was first loaded.
+	if(url == "/audio/tracks.json") {
+		var body = JSON.stringify({tracks: musicTracks()});
+		res.writeHead(200, {
+			"Content-Type": "application/json",
+			"Content-Length": Buffer.byteLength(body),
+			"Cache-Control": "no-store"
+		});
+		return res.end(body);
+	}
 
 	// This used to be fs.readFileSync(__dirname + req.url), so a request for
 	// /../../../etc/passwd read it out to anyone on the network. resolve()
