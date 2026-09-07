@@ -1775,6 +1775,43 @@ class Queen extends Toon {
 	}
 }
 
+/**
+ * Which declarations a stylesheet gives an element carrying these classes.
+ *
+ * Matching is by whole class token, and only for selectors that are a single
+ * compound of classes -- ".worker", ".worker.warrior". There is no document
+ * here to resolve ".level-night .ground" against, and a rule that cannot be
+ * evaluated must not be guessed at.
+ *
+ * Declarations merge, later rules winning property by property. They used to
+ * replace the whole rule, so the last stylesheet rule that merely mentioned
+ * one of the element's classes deleted every property the earlier ones set --
+ * a second `.toon` block silently took the width and height off every
+ * character, and toons with no body fell through the floor.
+ *
+ * @param rules the css package's stylesheet.rules, each carrying a .json map
+ * @param classes the element's class names, without dots
+ */
+function styleForClasses(rules, classes) {
+	const have = new Set(classes);
+	const out = {};
+
+	rules.forEach(rule => {
+		if(!rule.selectors || !rule.json) return;
+
+		const applies = rule.selectors.some(sel => {
+			sel = sel.trim();
+			if(/[\s>+~]/.test(sel)) return false;   // needs a document
+			if(sel[0] != ".") return false;          // class selectors only
+			return sel.slice(1).split(".").every(t => have.has(t));
+		});
+
+		if(applies) Object.assign(out, rule.json);
+	});
+
+	return out;
+}
+
 class Game extends EventDispatcher {
 	constructor() {
 		super();
@@ -2022,21 +2059,6 @@ class Game extends EventDispatcher {
 					}
 				});
 
-				// genStyleBySelectors(['.queen', 'blue']).json)
-				var genStyleBySelectors = function(selectors) {
-					if(!selectors.length) selectors = [selectors];
-
-					var ret = {};
-					vcss.stylesheet.rules.forEach(rule => { // class rules
-						selectors.forEach((sel) => { // class names
-							if(rule.selectors && rule.selectors[0].indexOf(sel) >= 0) { // class properties
-								Object.assign(ret, rule);
-							}
-						});
-					});
-					return ret;
-				}
-
 				var styleToJson = function(str) {
 					var o = {};
 					str.split(';').forEach((p) => {
@@ -2057,7 +2079,7 @@ class Game extends EventDispatcher {
 					var mclass = o.attribs.class.split(' ');
 					// if(o.attribs.is) mclass.push(o.attribs.id);
 					var id = o.attribs.id || mclass[0];
-					var vrule = genStyleBySelectors(mclass);
+					var vstyle = styleForClasses(vcss.stylesheet.rules, mclass);
 					var vobj = null;
 					// todo: what's a more dynamic way of doing this? -jkr
 					switch(true) {
@@ -2121,7 +2143,7 @@ class Game extends EventDispatcher {
 
 					if(vobj) {
 						var j = styleToJson(o.attribs.style);
-						j = flattenJsonCss(j, vrule.json);
+						j = flattenJsonCss(j, vstyle);
 						var r = {};
 						r.left = s2n(j.left);
 						r.top = s2n(j.top);
@@ -2167,4 +2189,5 @@ module.exports =  {
 	Worker:				Worker,
 	Queen:				Queen,
 	Game:				Game,
+	styleForClasses:	styleForClasses,
 }
