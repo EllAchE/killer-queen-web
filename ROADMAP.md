@@ -151,13 +151,14 @@ berries, and drop-outs are replaced by a bot mid-match so play never stops.
 5. **`Snail.collission` with a `SnailCage` reads `this.toon.team`** without a
    null check — an unridden snail touching the cage throws.
 
-Two more turned up while building the maps, both still open:
+Two more turned up while building the maps. The first is now fixed:
 
-6. **Either cage wins the snail.** `Snail.collission` hands
+6. ~~**Either cage wins the snail.**~~ Fixed. `Snail.collission` handed
    `WIN_SNAIL` to `this.toon.team` whichever cage it touched, so riding the
-   snail backwards into the *enemy* basket wins the game for you. The cages
-   already say who they belong to — `cage-blue`, `cage-gold` — and `SnailCage`
-   ignores it entirely. It needs a team off the id and one comparison.
+   snail backwards into the *enemy* basket won the game for you. `SnailCage`
+   already inherited a `team` off its id — `cage-blue`, `cage-gold` — and never
+   read it. It now returns unless the rider's team matches, and a cage with no
+   team in its id stays neutral so a future shared basket still works.
 7. **Horizontal wrap applies to the whole board.** `visibilityCheck` wraps any
    toon that leaves the side of the level, at any height. On the arcade's Day
    map only the lower section wraps; the upper platforms are walled. Now that
@@ -211,8 +212,8 @@ select with Day, Night and both bonus boards.
 
 What's left, cheapest and most felt first:
 
-1. The two fidelity gaps the map work turned up — own-cage snail win, and
-   wrapping a band of the board rather than all of it.
+1. Wrapping a band of the board rather than all of it (item 7 above). The
+   other gap the map work turned up, the own-cage snail win, is fixed.
 2. Audio. Still the highest atmosphere-per-hour item in the tree, and there is
    currently none of it at all.
 3. HUD and spectator mode — berry count, queen lives and snail progress are all

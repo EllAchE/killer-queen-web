@@ -733,6 +733,13 @@ class Snail extends Updateable {
 			// reachable from the generic hit test, where there is no rider.
 			if(!this.toon) return;
 
+			// You win by getting the snail home. The cages carry a team in
+			// their ids -- cage-blue, cage-gold, one at each end -- and this
+			// used to ignore it, so riding backwards into the other hive's
+			// basket handed you the game. A cage with no team in its id is
+			// treated as neutral and still wins for whoever arrives.
+			if(o.team && this.toon.team != o.team) return;
+
 			Game.instance.win(CONST.WIN_SNAIL, this.toon.team, this.toon);
 		}
 	}

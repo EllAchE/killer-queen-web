@@ -122,6 +122,48 @@ console.log("\n-- a riderless snail on the cage does not throw --");
 	check("a ridden snail still wins", won, CONST.WIN_SNAIL);
 }
 
+console.log("\n-- the snail only wins at your own cage --");
+{
+	const s = snail();
+	let won = null, winner = null;
+	Game.instance.win = (type, team) => { won = type; winner = team; };
+
+	s.collission(drone("teamBlue-worker0"));
+	s.collission(place(new SnailCage("cage-gold")));
+	check("riding into the enemy cage wins nothing", won, null);
+
+	s.collission(place(new SnailCage("cage-blue")));
+	check("riding into your own cage wins", won, CONST.WIN_SNAIL);
+	check("and wins for your team", winner, "teamBlue");
+}
+
+console.log("\n-- and the same holds for gold --");
+{
+	const s = snail();
+	let won = null, winner = null;
+	Game.instance.win = (type, team) => { won = type; winner = team; };
+
+	s.collission(drone("teamGold-worker0"));
+	s.collission(place(new SnailCage("cage-blue")));
+	check("gold gets nothing from the blue cage", won, null);
+
+	s.collission(place(new SnailCage("cage-gold")));
+	check("gold wins at the gold cage", winner, "teamGold");
+}
+
+console.log("\n-- a cage with no team in its id stays neutral --");
+{
+	// The bonus boards ship no cages at all, but a future map might want a
+	// single shared basket, and that must not silently become unwinnable.
+	const s = snail();
+	let won = null;
+	Game.instance.win = (type) => { won = type; };
+
+	s.collission(drone("teamBlue-worker0"));
+	s.collission(place(new SnailCage("cage-middle")));
+	check("anyone wins at a neutral cage", won, CONST.WIN_SNAIL);
+}
+
 console.log("\n-- a converted gate only serves its own team --");
 {
 	const g = place(new ShrineWarrior("shrine-warrior-blue"));
