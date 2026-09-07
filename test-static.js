@@ -82,6 +82,59 @@ waitForServer(40).then(async () => {
 			(await get("/audio/music/nothing-here.mp3")).code, 404);
 	}
 
+	console.log("\n-- the track listing --");
+	{
+		const fs = require("fs");
+		const list = () => get("/audio/tracks.json").then(r => JSON.parse(r.body).tracks);
+
+		let tracks = await list();
+		const ids = tracks.map(t => t.id);
+
+		check("the shipped match music is offered", ids.filter(i => /^match-/.test(i)).length > 0, true);
+
+		// These two play on their own cue -- the lobby loop and the ending
+		// theme -- so putting them in the picker would just be confusing.
+		check("the lobby loop is not in the picker", ids.indexOf("lobby"), -1);
+		check("nor is the ending theme", ids.indexOf("victory"), -1);
+
+		const one = tracks.find(t => t.id === "match-1");
+		check("a track carries every format it was built in",
+			one ? one.srcs.slice().sort() : null,
+			["audio/music/match-1.mp3", "audio/music/match-1.ogg"]);
+		check("and a label a person would recognise", !!(one && one.label && one.label !== one.id), true);
+
+		// The drop-in slot, which is the whole answer to "can we have Never
+		// Gonna Give You Up". A space in the name because that is what a real
+		// one looks like, and it has to survive all the way to the client.
+		const dir = __dirname + "/audio/music/custom";
+		const drop = dir + "/Test Drop In.mp3";
+		fs.mkdirSync(dir, {recursive: true});
+		fs.writeFileSync(drop, "not really an mp3");
+		try {
+			tracks = await list();
+			const mine = tracks.find(t => t.id === "custom/Test Drop In");
+			check("a file dropped into custom/ shows up with no restart", !!mine, true);
+			check("labelled with its filename", mine && mine.label, "Test Drop In");
+			check("and served from where it was dropped",
+				mine && mine.srcs, ["audio/music/custom/Test Drop In.mp3"]);
+
+			// The src has a space in it, so the client has to encode it. This
+			// is the check that the server answers the encoded form.
+			const r = await get("/audio/music/custom/Test%20Drop%20In.mp3");
+			check("the encoded path fetches the file", r.code, 200);
+			check("as audio", r.type, "audio/mpeg");
+		} finally {
+			fs.unlinkSync(drop);
+		}
+
+		tracks = await list();
+		check("and it is gone again when the file is",
+			tracks.filter(t => t.id === "custom/Test Drop In").length, 0);
+
+		check("README.md in custom/ is not offered as music",
+			tracks.filter(t => /README/i.test(t.id)).length, 0);
+	}
+
 	console.log("\n-- reads stay inside the repo --");
 	for(const p of [
 		"/../../../etc/passwd",
