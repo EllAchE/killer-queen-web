@@ -189,8 +189,16 @@ Two more turned up while building the maps, both still open:
     toon, and just renders. Currently *impossible*, because `app.js:87`
     (`if(!u.toonId || !u.ready) gameReady = false;`) requires every connected
     socket to be ready before a round starts, so one spectator deadlocks the
-    lobby. Worth fixing regardless: that same line is what silently blocks a
-    round when any stale socket is hanging around.
+    lobby.
+
+    The failure is **delayed, which is what makes it confusing**. Mid-round the
+    `USER_READY` handler short-circuits on `if(gameInProgress) { ...; return; }`
+    before it ever reaches that loop, so a spectator tab opened during a live
+    match is harmless and looks fine. But `GAME_RESET` nulls `toonId` on *every*
+    user, so from the next reset onward that same tab — and any stale socket
+    nobody remembers leaving open — blocks every round, with no message saying
+    why. Hit while verifying this work: a forgotten browser tab held the lobby
+    shut. Worth fixing ahead of the presentation items on that alone.
 11. **No HUD.** Berry count per team, queen lives remaining, and snail progress
     are all in server state and none of them are on screen.
 
