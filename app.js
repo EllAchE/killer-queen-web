@@ -258,6 +258,16 @@ io.sockets.on("connection", socket => {
 	})
 
 	socket.on(KQ.CONST.USER_CHARACTER_SELECT, data => {
+		if(!data) return;
+
+		// The page only ever sends an id it read off the menu, but the page is
+		// not the only thing that can send one, and a toonId with no toon
+		// behind it is worse than it looks: the select succeeds, and then
+		// Game.loop looks it up every tick, gets undefined, and throws on the
+		// first key this player presses -- forever, into a caught-and-logged
+		// warning nobody is reading.
+		if(!KQ.Game.instance.virtual.level.toons[data.toonId]) return;
+
 		// make sure character isn't already taken
 		var taken = false;
 		KQ.Game.instance.users.forEach(u => {
@@ -277,6 +287,7 @@ io.sockets.on("connection", socket => {
 	});
 
 	socket.on(KQ.CONST.USER_READY, data => {
+		if(!data) return;
 		user.ready = data.ready;
 
 		if(user.ready) {
@@ -302,6 +313,7 @@ io.sockets.on("connection", socket => {
 	})
 
 	socket.on(KQ.CONST.USER_MAP_SELECT, data => {
+		if(!data) return;
 		if(!KQ.MAPS[data.map]) return;
 		if(data.map == KQ.Game.instance.map) return;
 
@@ -327,12 +339,18 @@ io.sockets.on("connection", socket => {
 	});
 
 	socket.on(KQ.CONST.USER_NAME, data => {
+		if(!data) return;
 		if(!user.toonId) return;
 		user.name = cleanName(data.name);
 		broadcastNames();
 	});
 
 	socket.on(KQ.CONST.KEY_UPDATE, data => {
+		// An array of key names is the only thing loop() can walk. Anything
+		// else lands in user.keys and throws on every tick from then on, into
+		// the try/catch that logs it and moves on -- so the player's inputs
+		// are silently dead and the console fills up at 60Hz.
+		if(!Array.isArray(data)) return;
 		user.keys = data;
 
 		// Relay for the keystroke HUD. Sent back to this socket only: the
