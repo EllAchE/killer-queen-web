@@ -1288,11 +1288,57 @@ class Toon extends Updateable {
 		if(wrap == "x" || wrap == "both") {
 			if(this.left + this.width/2 < 0) this.left = level.width - this.width/2;
 			if(this.left + this.width/2 > level.width) this.left = 0;
+		} else {
+			this.clampAxis("left", level.width, this.width);
+			// No accel reset here: accel is the vertical velocity, and running
+			// into the side of the board says nothing about a fall.
 		}
+
 		if(wrap == "y" || wrap == "both") {
 			if(this.top + this.height/2 < 0) this.top = level.height - this.height/2;
 			if(this.top + this.height/2 > level.height) this.top = 0;
+		} else {
+			// An axis the map does not wrap used to have nothing on it at all,
+			// which cost the Day board every match played on it. The queen is
+			// meant to fly and a warrior is meant to jump again in mid-air, so
+			// neither of them has to be grounded to gain height -- and the
+			// ceiling is a row of ground segments with gaps in it. Anyone who
+			// wandered under a gap and kept tapping jump left through it, and
+			// on an axis with no wrap there was nothing above to come back
+			// from and gravity never won. Both queens were reliably ten
+			// thousand pixels off the top of an 800x600 board inside twenty
+			// seconds: invisible, out of reach, and unable to be killed, so
+			// the round could no longer be won or lost.
+			// Zeroing the fall is what groundCheck already does to anything
+			// that bumps its head: left alone, a queen on her way up arrives
+			// at the ceiling every frame still carrying the jump that took her
+			// there, and re-clamping her in place reads as a stutter rather
+			// than as hitting something.
+			if(this.clampAxis("top", level.height, this.height)) this.accel = 0;
 		}
+	}
+
+	/**
+	 * Put this toon back on the board along one axis.
+	 *
+	 * A whole body of headroom is allowed past each edge because the boards
+	 * are built right up to them: the top ledge sits at y=0, so a toon
+	 * standing on it is legitimately at -25, and clamping to zero would shove
+	 * it into the floor it is standing on, where groundCheck would push back
+	 * and the two would fight every frame.
+	 *
+	 * @return bool whether it had to be moved
+	 */
+	clampAxis(prop, extent, size) {
+		if(this[prop] < -size) {
+			this[prop] = -size;
+			return true;
+		}
+		if(this[prop] > extent) {
+			this[prop] = extent - size;
+			return true;
+		}
+		return false;
 	}
 
 	roundNumbers() {
