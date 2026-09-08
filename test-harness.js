@@ -25,6 +25,9 @@
  * because the four things it fails on are all real and none of them are fixed
  * yet. In rough order of what it costs a player:
  *
+ *   queen-standoff      the two queens meeting head on throws out of the tick
+ *                       every frame they touch, halving the broadcast rate
+ *                       for all ten players until somebody backs off
  *   jump-mashing        both queens leave the top of the board inside twenty
  *                       seconds of ordinary play and never come back, which
  *                       ends the match without ending it
@@ -728,6 +731,40 @@ scenario("jump-mashing", "everybody taps jump, the way everybody does", async ct
 		return o && o.top < -200;
 	});
 	ctx.expect("nobody jumped their way off the board", escaped, []);
+});
+
+scenario("queen-standoff", "the two queens walk into each other", async ctx => {
+	// Deliberately no jumping: the two of them meet on the floor, at the same
+	// height, which is the case Queen.collission has no answer for. Height
+	// decides a queen fight and there is none to decide it, so it falls to a
+	// bump() that was never written and throws instead.
+	//
+	// The throw is the expensive part rather than the clash. Nothing between
+	// collission and the setInterval catches it, so the tick dies before the
+	// sendUpdates() at the end of Game.loop() -- and the two of them stay
+	// touching, so it dies again on the next tick, and the next. What the
+	// other eight players see is the whole world stopping.
+	const cs = ctx.clients = await connectAll(ctx.port, 10);
+	await seatEveryone(cs);
+	ctx.expect("the match is running", cs.every(c => c.started), true);
+
+	const blueQueen = cs.find(c => c.toonId === "teamBlue-queen");
+	const goldQueen = cs.find(c => c.toonId === "teamGold-queen");
+
+	// Everyone else stands still, so any hole in the broadcast is theirs.
+	const iv = setInterval(() => {
+		blueQueen.keys(["ArrowRight"]);
+		goldQueen.keys(["ArrowLeft"]);
+	}, 90);
+	cs.forEach(c => { if(!c.drivingSince) c.drivingSince = Date.now(); });
+
+	const before = cs[0].counts.virtual_update || 0;
+	await sleep(14000);
+	clearInterval(iv);
+	const rate = Math.round((cs[0].counts.virtual_update - before) / 14);
+
+	ctx.note("broadcasts per second while the queens were touching", String(rate));
+	ctx.expect("the tick kept broadcasting through the clash", rate > 40, true);
 });
 
 scenario("hostile-payloads", "clients that send things the page never would", async ctx => {
