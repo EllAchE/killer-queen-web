@@ -16,7 +16,7 @@ commit [`15fc028`](https://github.com/jacksonkr/Killer-Queen/commit/15fc028)
 that is not Jackson's is a change layered on top of that import — see the git
 log for what moved.
 
-Maintained in this fork by Logan Harless.
+Continued in this fork by Logan Harless.
 
 > **Note on the git history:** the upstream history was flattened into a single
 > import commit when this fork was created, so `git blame` and `git log` credit
