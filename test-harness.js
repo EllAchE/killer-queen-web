@@ -21,25 +21,22 @@
  *   node test-harness.js --verbose       per-client event traces
  *
  * Exit status is 0 only if every scenario passed and the server logged no
- * uncaught exception. It does not currently exit 0: this lands red on purpose,
- * because the four things it fails on are all real and none of them are fixed
- * yet. In rough order of what it costs a player:
+ * uncaught exception. It is green, and each scenario that is green now was red
+ * when it was written -- these are the five faults it was built to catch, all
+ * since fixed, kept as the regression cases for them:
  *
- *   queen-standoff      the two queens meeting head on throws out of the tick
- *                       every frame they touch, halving the broadcast rate
- *                       for all ten players until somebody backs off
- *   jump-mashing        both queens leave the top of the board inside twenty
- *                       seconds of ordinary play and never come back, which
- *                       ends the match without ending it
+ *   queen-standoff      the two queens meeting head on threw out of the tick
+ *                       every frame they touched, halving the broadcast rate
+ *                       for all ten players until somebody backed off
+ *   jump-mashing        both queens left the top of the board inside twenty
+ *                       seconds of ordinary play and never came back, which
+ *                       ended the match without ending it
  *   id-uniqueness       two sockets handed the same Date.now(), after which
- *                       one disconnect unseats a different, still-connected
- *                       player and their controls stop answering
- *   rapid-ready-toggle  the countdown is re-armed per ready, so one lobby can
- *                       start the match twenty-five times over
- *   hostile-payloads    three socket handlers deref a null payload
- *
- * Each has a fix coming as its own change; this file is the thing that proves
- * them, so it goes in first and the reds turn green one at a time.
+ *                       one disconnect unseated a different, still-connected
+ *                       player and their controls stopped answering
+ *   rapid-ready-toggle  the countdown was re-armed per ready, so one lobby
+ *                       could start the match twenty-five times over
+ *   hostile-payloads    three socket handlers dereferenced a null payload
  *
  * What it does NOT find is worth recording too. Eight minutes of ten-player
  * soak held RSS flat at ~90MB, the broadcast gap at 16ms and the update rate
