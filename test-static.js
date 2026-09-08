@@ -135,6 +135,21 @@ waitForServer(40).then(async () => {
 			tracks.filter(t => /README/i.test(t.id)).length, 0);
 	}
 
+	console.log("\n-- the join address the menu prints --");
+	{
+		const r = await get("/kqx-join.json");
+		check("answered", r.code, 200);
+		check("as json", r.type, "application/json");
+
+		const info = JSON.parse(r.body);
+		check("names the port it is serving on", info.port, PORT);
+		check("urls is a list", Array.isArray(info.urls), true);
+		check("with no loopback in it",
+			info.urls.filter(u => u.indexOf("127.") > -1 || u.indexOf("localhost") > -1), []);
+		check("and every entry names a port",
+			info.urls.every(u => /:\d+$/.test(u)), true);
+	}
+
 	console.log("\n-- reads stay inside the repo --");
 	for(const p of [
 		"/../../../etc/passwd",
