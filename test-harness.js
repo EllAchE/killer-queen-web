@@ -85,7 +85,6 @@ class Server {
 		this.stdout = "";
 		this.stderr = "";
 		this.crashes = [];   // uncaught exceptions, parsed out of stderr
-		this.warnings = [];  // the tick's own caught-and-logged throws
 	}
 
 	async start() {
@@ -170,15 +169,12 @@ class Server {
 const NET = {
 	lan:      {delay: 1,   jitter: 1,   loss: 0,    reorder: 0},
 	wifi:     {delay: 25,  jitter: 15,  loss: 0.01, reorder: 0.02},
-	badwifi:  {delay: 120, jitter: 90,  loss: 0.08, reorder: 0.10},
-	awful:    {delay: 300, jitter: 250, loss: 0.20, reorder: 0.25}
+	badwifi:  {delay: 120, jitter: 90,  loss: 0.08, reorder: 0.10}
 };
 
 const CONST = {
 	USER_CHARACTER_SELECT: "USER_CHARACTER_SELECT",
 	USER_READY: "user_ready",
-	USER_NAME: "user_name",
-	USER_MAP_SELECT: "user_map_select",
 	KEY_UPDATE: "key_update"
 };
 
@@ -205,7 +201,6 @@ class Client {
 		this.blackholed = false;
 		this.autoPong = opts.autoPong !== false;
 
-		this.events = [];          // every event received, in order
 		this.counts = {};          // event name -> how many
 		this.bytesIn = 0;
 		this.updateTimes = [];     // arrival ms of each virtual_update
@@ -224,7 +219,6 @@ class Client {
 			this.ws.on("message", buf => this._onMessage(String(buf), buf.length));
 			this.ws.on("error", () => {});
 			this.ws.on("close", () => { this.connected = false; this.closed = true; });
-			this.ws.on("open", () => {});
 
 			const t = setTimeout(() => reject(new Error(this.name + " never finished the socket.io handshake")), 8000);
 			this._onConnect = () => { clearTimeout(t); resolve(this); };
@@ -255,7 +249,6 @@ class Client {
 		catch(e) { return; }
 
 		this.counts[name] = (this.counts[name] || 0) + 1;
-		this.events.push({name, payload, at: Date.now()});
 		trace(this.name, "<-", name);
 
 		switch(name) {
@@ -303,8 +296,6 @@ class Client {
 	}
 	ready(v) { this.emit(CONST.USER_READY, {ready: v !== false}); }
 	keys(arr) { this.emit(CONST.KEY_UPDATE, arr); }
-	rename(n) { this.emit(CONST.USER_NAME, {name: n}); }
-	pickMap(m) { this.emit(CONST.USER_MAP_SELECT, {map: m}); }
 
 	/** Close the tab. A clean websocket close frame. */
 	quit() { this.closed = true; try { this.ws.close(); } catch(e) {} }
