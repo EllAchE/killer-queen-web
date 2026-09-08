@@ -218,9 +218,27 @@ function broadcastNames() {
 	io.sockets.emit(KQ.CONST.NAME_UPDATE, {names: names});
 }
 
+/**
+ * A user id that is actually one user.
+ *
+ * This was Date.now(), which is only unique if no two people ever connect in
+ * the same millisecond. Ten laptops opening the same join link do exactly
+ * that, and the disconnect handler below identifies the leaver by this value,
+ * so a collision there unseats somebody else: their bee stops answering while
+ * their screen carries on showing a live match, which reads as the game
+ * having crashed on them alone.
+ *
+ * The counter is what makes it unique; the timestamp stays only because these
+ * show up in logs and a bare 7 says less than the time it happened.
+ */
+var userSeq = 0;
+function nextUserId() {
+	return Date.now() + "-" + (++userSeq);
+}
+
 io.sockets.on("connection", socket => {
 	var user = {};
-	user.id = Date.now();
+	user.id = nextUserId();
 	user.keys = [];
 	user.socket = socket;
 	socket.user = user;
@@ -336,10 +354,14 @@ io.sockets.on("connection", socket => {
 
 
 		user.toonId = undefined;
-		for(var i in KQ.Game.instance.users) {
-			var o = KQ.Game.instance.users[i];
-			if(o.id == user.id) KQ.Game.instance.users.splice(i, 1);
-		};
+
+		// By identity, not by id. Matching on the id searched from the front
+		// and removed every hit without stopping, so the socket that left took
+		// the first user carrying its id with it -- and mutating the array
+		// under a for-in meant which ones went depended on where they sat.
+		// indexOf finds this user and nobody else, whatever the id says.
+		var at = KQ.Game.instance.users.indexOf(user);
+		if(at >= 0) KQ.Game.instance.users.splice(at, 1);
 
 		console.log("DISCONNECT", KQ.Game.instance.users.length);
 
