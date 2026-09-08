@@ -328,11 +328,15 @@ class Client {
 		try { this.ws._socket.pause(); } catch(e) {}
 	}
 
-	/** Median gap between server broadcasts, as this client saw them. */
-	updateGapMs() {
-		if(this.updateTimes.length < 3) return null;
+	/**
+	 * Median gap between server broadcasts, as this client saw them.
+	 * @since optional cutoff, to measure only a window worth measuring
+	 */
+	updateGapMs(since) {
+		const times = since ? this.updateTimes.filter(t => t >= since) : this.updateTimes;
+		if(times.length < 3) return null;
 		const gaps = [];
-		for(let i = 1; i < this.updateTimes.length; i++) gaps.push(this.updateTimes[i] - this.updateTimes[i-1]);
+		for(let i = 1; i < times.length; i++) gaps.push(times[i] - times[i-1]);
 		gaps.sort((a, b) => a - b);
 		return gaps[Math.floor(gaps.length / 2)];
 	}
@@ -462,7 +466,13 @@ const INVARIANTS = {
 	"the server keeps its tick budget"(ctx) {
 		const bad = [];
 		ctx.clients.forEach(c => {
-			const g = c.updateGapMs();
+			// Only where somebody was driving. sendUpdates broadcasts nothing
+			// when nothing moved, so on a settled board the spacing between
+			// updates measures how still the toons are, not what the tick
+			// costs -- and a scenario that never presses a key would fail this
+			// on the strength of the game being idle.
+			if(!c.drivingSince) return;
+			const g = c.updateGapMs(c.drivingSince);
 			if(g !== null && g > 40) bad.push(c.name + " saw a median " + g + "ms between updates");
 		});
 		return bad;
