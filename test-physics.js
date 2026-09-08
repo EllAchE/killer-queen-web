@@ -13,7 +13,7 @@ global.io = {emit: () => {}, sockets: {emit: () => {}}};
 global.fs = require('fs');
 
 const KQ = require('./game.js');
-const {CONST, MAPS, Game, Ground, Worker, Queen} = KQ;
+const {CONST, MAPS, Game, Ground, Worker, Queen, cssLength} = KQ;
 
 new Game(); // singleton, sets Game.instance
 
@@ -158,6 +158,56 @@ async function geometry() {
 			b.collission(drone);
 		}
 		check("200 pickups add no listeners", Game.instance._listeners.length - before, 0);
+	}
+
+	console.log("\n-- a position that is not a number does not hang the loop --");
+	{
+		// hitTestBounds compares four ways and negates the result, so a NaN
+		// coordinate makes all four false and reports an overlap with
+		// everything. groundCheck then nudges 0.1px at a time towards a
+		// collision that never clears, and the process stops answering: event
+		// loop dead, port still open, nothing logged. It is the only fault in
+		// here that produces the crash people actually describe.
+		Game.instance.releaseLevel();
+		await Game.instance.loadLevel("day");
+		const level = Game.instance.virtual.level;
+		const ground = level.ground[0];
+
+		check("NaN never reports an overlap", ground.hitTestBounds({x: NaN, y: 100, width: 20, height: 25}), false);
+		check("and neither does Infinity", ground.hitTestBounds({x: 0, y: Infinity, width: 20, height: 25}), false);
+		check("a real overlap still reports one",
+			ground.hitTestBounds({x: ground.left, y: ground.top, width: 10, height: 10}), true);
+
+		// Counted rather than timed: a regression here does not fail slowly,
+		// it never returns at all, so the test has to break the loop itself
+		// instead of waiting for one that will not end.
+		const toon = level.toons["teamBlue-worker0"];
+		toon.mReset();
+		toon.top = NaN;
+		let calls = 0;
+		const proto = Object.getPrototypeOf(ground);
+		const real = proto.hitTestBounds;
+		proto.hitTestBounds = function(box) {
+			if(++calls > 200000) throw new Error("groundCheck did not terminate");
+			return real.call(this, box);
+		};
+		let stuck = null;
+		try { toon.groundCheck(); } catch(e) { stuck = e.message; }
+		proto.hitTestBounds = real;
+		check("groundCheck returns on a NaN toon", stuck, null);
+	}
+
+	console.log("\n-- a toon has physics before its first round --");
+	{
+		// gravityCheck does `accel += rate`, so an accel of undefined is NaN
+		// on frame one and lands straight in top. mReset fixes it, but mReset
+		// only runs on GAME_START, and the level loops before that.
+		Game.instance.releaseLevel();
+		await Game.instance.loadLevel("day");
+		const fresh = Game.instance.virtual.level.toons["teamBlue-worker0"];
+		check("accel starts at a number", fresh.accel, 0);
+		fresh.gravityCheck();
+		check("and one frame of gravity keeps top numeric", isNaN(fresh.top), false);
 	}
 }
 
@@ -377,6 +427,27 @@ function engine() {
 		run(q, 200);
 		check("she lands on the floor", Math.round(q.top + q.height), 300);
 	}
+}
+
+console.log("\n-- a stylesheet value the parser cannot resolve --");
+{
+	// This used to end `return s`, and no `s` existed in that scope, so any
+	// value without "px" threw ReferenceError out of loadLevel. The promise
+	// rejected, app.js logged it, and the board was left half-built with the
+	// game running on it. `top: 0` was enough.
+	check("px is stripped", cssLength("10px"), 10);
+	check("a bare zero is a length", cssLength("0"), 0);
+	check("whitespace does not matter", cssLength("  24px "), 24);
+	check("negatives survive", cssLength("-100px"), -100);
+	check("so do fractions", cssLength("3.5px"), 3.5);
+
+	// Refused rather than guessed at: there is no document here to resolve
+	// them against, and parseFloat would turn "50%" into the pixel count 50.
+	check("a percentage is not a pixel count", cssLength("100%"), undefined);
+	check("auto has no value", cssLength("auto"), undefined);
+	check("calc needs a layout", cssLength("calc(100% - 5px)"), undefined);
+	check("two lengths are not one", cssLength("10px 4px"), undefined);
+	check("a missing declaration", cssLength(undefined), undefined);
 }
 
 (async () => {
