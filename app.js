@@ -245,6 +245,35 @@ io.sockets.on("connection", socket => {
 		}
 	})
 
+	/**
+	 * Leave without closing the tab: the slot frees up, the toon goes back to
+	 * AI like on a disconnect, and the lobby hears about it so someone else
+	 * can pick the character. Quitting mid-match leaves the round running for
+	 * everyone else; a re-pick and Ready quick-joins it again.
+	 */
+	socket.on(KQ.CONST.USER_QUIT, () => {
+		if(!user.toonId) return;
+
+		var e = new KQ.Event(KQ.CONST.USER_DISCONNECT);
+		e.extra = {user:user};
+		KQ.Game.instance.dispatchEvent(e);
+
+		user.toonId = null;
+		user.ready = false;
+
+		broadcastNames();
+		KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.MENU_UPDATE));
+
+		// The quitter may have been the only one the lobby was still waiting
+		// on. Same re-check as the disconnect path: without it everyone
+		// already readied sits on the menu until someone toggles ready.
+		if(!KQ.Game.instance.gameInProgress &&
+				KQ.Game.readyToStart(KQ.Game.instance.users)) {
+			KQ.Game.instance.countDownStartTime = Date.now();
+			KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.GAME_COUNTDOWN));
+		}
+	})
+
 	socket.on(KQ.CONST.USER_MAP_SELECT, data => {
 		if(!KQ.MAPS[data.map]) return;
 		if(data.map == KQ.Game.instance.map) return;

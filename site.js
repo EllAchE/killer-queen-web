@@ -32,6 +32,7 @@ window.onload = function() {
     USER_CHARACTER_SELECT:"USER_CHARACTER_SELECT",
     USER_READY:"user_ready",
     USER_DISCONNECT:"user_disconnect",
+    USER_QUIT:"user_quit",
     TEAM_BLUE:"teamBlue",
     TEAM_GOLD:"teamGold",
     TOON_QUEEN:"queen",
@@ -345,6 +346,9 @@ window.onload = function() {
 		document.getElementById("player-ready").disabled = false;
 		document.getElementById("player-ready").classList.remove("selected");
 
+		var leave = document.getElementById("player-leave");
+		if(leave) leave.disabled = false;
+
 		var input = document.getElementById("kqx-name");
 		socket.emit(CONST.USER_CHARACTER_SELECT, {
 			toonId: id,
@@ -372,6 +376,35 @@ window.onload = function() {
 
 
 	}
+
+	// The in-match Quit tab is painted before this runs, so the global stub
+	// below forwards here once the socket exists.
+	window.kqxQuitImpl = () => {
+		if(!game.characterSelected) return;
+
+		socket.emit(CONST.USER_QUIT, {});
+		game.characterSelected = null;
+
+		var list = document.getElementById("menu").getElementsByTagName("li");
+		for(var i in list) {
+			var li = list[+i];
+			if(li) li.classList.remove("selected");
+		}
+
+		var ready = document.getElementById("player-ready");
+		ready.classList.remove("selected");
+		ready.disabled = true;
+
+		var leave = document.getElementById("player-leave");
+		if(leave) leave.disabled = true;
+
+		if(window.kqxHud) window.kqxHud.setMyToon(null);
+		window.kqxClearKeys();
+
+		// Back to the menu from the lobby or mid-match alike. A re-pick and
+		// Ready quick-joins a round that is still running.
+		document.getElementById("menu").classList.remove("hide");
+	}
 }
 /**
  * The play field is a fixed 800x600 box (game.js hard-codes those bounds), so
@@ -394,6 +427,10 @@ document.addEventListener("DOMContentLoaded", kqxFit);
 window.addEventListener("load", kqxFit);
 
 window.kqxHelpOpen = false;
+// The in-match Quit tab is painted before window.onload runs, so this stub
+// exists from first paint and forwards once the socket is up. A click before
+// then is a no-op rather than a ReferenceError.
+window.playerQuit = function() { if(window.kqxQuitImpl) window.kqxQuitImpl(); };
 window.kqxHelp = function(show) {
 	var d = document.getElementById("kqx-help");
 	if(!d) return;

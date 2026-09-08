@@ -278,7 +278,7 @@ html, body {
 	height:53px;
 	background: url("assets/shrine-warrior.png");
 }
-#player-ready, #kqx-menu-help, #kqx-menu-settings {
+#player-ready, #player-leave, #kqx-menu-help, #kqx-menu-settings {
 	position: static;
 	display: inline-block;
 	margin: 0 6px;
@@ -298,7 +298,8 @@ html, body {
 }
 /* 0.25 read as "broken" against a bright sky; it still has to look off-limits
    until a character is picked, but legibly so. */
-#player-ready:disabled {
+#player-ready:disabled,
+#player-leave:disabled {
 	opacity: 0.5;
 	color: #8b87a5;
 	pointer-events: none;
@@ -306,6 +307,10 @@ html, body {
 #player-ready:hover {
 	border-color: #4ad07a;
 	color: #4ad07a;
+}
+#player-leave:hover {
+	border-color: #f58b8b;
+	color: #f58b8b;
 }
 #kqx-menu-help:hover {
 	border-color: #ffd76a;
@@ -679,6 +684,26 @@ html, body {
 #kqx-settings-tab:hover {
 	color: #8fb4f5;
 	border-color: #8fb4f5;
+}
+#kqx-quit-tab {
+	position: fixed;
+	top: 82px;
+	right: 12px;
+	z-index: 200;
+	font-family: "Trebuchet MS", "Segoe UI", Avenir, Helvetica, sans-serif;
+	font-size: 11px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: #cfcce0;
+	background: rgba(29, 26, 42, 0.92);
+	border: 1px solid #4a4763;
+	border-radius: 6px;
+	padding: 7px 12px;
+	cursor: pointer;
+}
+#kqx-quit-tab:hover {
+	color: #f58b8b;
+	border-color: #f58b8b;
 }
 
 #kqx-settings {
