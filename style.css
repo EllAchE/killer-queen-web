@@ -90,6 +90,20 @@ html, body {
 	color: #d5d2e4;
 	text-shadow: none;
 }
+/* Empty until site.js fills it from kqx-join.json, and hidden then: the line
+   is a convenience for the host, never layout. */
+#menu .kqx-join:empty { display: none; }
+#menu .kqx-join {
+	width: fit-content;
+	margin: -14px auto 22px;
+	max-width: 540px;
+	padding: 5px 14px;
+	border-radius: 999px;
+	background: rgba(16, 14, 26, 0.6);
+	font-size: 13px;
+	color: #ffd76a;
+	text-shadow: none;
+}
 #menu .team {
 	display: inline-block;
 	vertical-align: top;

@@ -5,6 +5,7 @@ process.on('warning', e => console.warn(e.stack));
 
 const http = require('http');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 global.fs = fs;
 const port = process.env.PORT || 3000;
@@ -41,6 +42,29 @@ const TRACK_LABELS = {
 	"match-2": "Chiptune — Level 2",
 	"match-3": "Chiptune — Level 3"
 };
+
+/**
+ * The `http://<lan-ip>:<port>` URLs other laptops join at, one per external
+ * IPv4 interface. Loopback is left out: it only reaches this machine, so it
+ * answers nothing on anyone else's screen. IPv6 is left out too, for the
+ * duller reason that it needs brackets in a URL and nobody's LAN here does.
+ */
+function joinUrls() {
+	var seen = {};
+	try {
+		Object.keys(os.networkInterfaces()).forEach(function(name) {
+			os.networkInterfaces()[name].forEach(function(nic) {
+				if(nic.family !== "IPv4" || nic.internal || !nic.address) return;
+				seen[nic.address] = true;
+			});
+		});
+	} catch(e) {
+		// No interfaces readable: the menu simply shows nothing.
+	}
+	return Object.keys(seen).sort().map(function(addr) {
+		return "http://" + addr + ":" + port;
+	});
+}
 
 /**
  * The match music the picker offers.
@@ -105,6 +129,20 @@ const app = http.createServer(function(req, res) {
 			"Cache-Control": "no-store"
 		});
 		return res.end(body);
+	}
+
+	// The address other laptops join at. The host's own page knows it only as
+	// localhost, so the menu asks here and prints it: without this everyone
+	// types `ipconfig getifaddr en0` into a terminal instead. No-store because
+	// a laptop can change networks mid-session.
+	if(url == "/kqx-join.json") {
+		var joinBody = JSON.stringify({port: Number(port), urls: joinUrls()});
+		res.writeHead(200, {
+			"Content-Type": "application/json",
+			"Content-Length": Buffer.byteLength(joinBody),
+			"Cache-Control": "no-store"
+		});
+		return res.end(joinBody);
 	}
 
 	// This used to be fs.readFileSync(__dirname + req.url), so a request for

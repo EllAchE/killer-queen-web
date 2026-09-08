@@ -372,6 +372,24 @@ window.onload = function() {
 
 
 	}
+
+	/**
+	 * The address other laptops join at. The server knows its LAN interfaces
+	 * and this page does not, so it asks once at load. A missing element, a
+	 * failed fetch, or an empty list all leave the menu as it was: this line
+	 * is a convenience, never a blocker.
+	 */
+	try {
+		fetch("kqx-join.json").then(r => {
+			if(!r.ok) throw new Error(r.status);
+			return r.json();
+		}).then(info => {
+			var urls = (info && info.urls) || [];
+			if(!urls.length) return;
+			var ele = document.getElementById("kqx-join");
+			if(ele) ele.textContent = "Others on this WiFi join at " + urls.join(" or ");
+		}).catch(e => {});
+	} catch(e) {}
 }
 /**
  * The play field is a fixed 800x600 box (game.js hard-codes those bounds), so
