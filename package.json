@@ -8,9 +8,13 @@
     "css": "^2.2.1",
     "socket.io": "^4.7.5"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "ws": "^8.18.0"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "harness": "node test-harness.js",
+    "soak": "node test-harness.js --only=none --soak=600"
   },
   "repository": {
     "type": "git",
