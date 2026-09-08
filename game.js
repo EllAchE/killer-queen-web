@@ -1747,6 +1747,29 @@ class Queen extends Toon {
 		super.attack();
 	}
 
+	/**
+	 * Two queens meet head on with neither one above the other.
+	 *
+	 * Height decides a queen fight, and here there is no height to decide it,
+	 * so nobody dies and they shove each other apart to try again. That was
+	 * always the intent -- the ELE_BUMP dispatched just above says so -- but
+	 * the bump() it then called was never written, so every frame the two of
+	 * them were touching threw `this.bump is not a function` out of
+	 * collission.
+	 *
+	 * Which cost far more than the clash. The throw came up through toonCheck
+	 * and the LOOP dispatch into Game.loop(), where nothing catches it, so the
+	 * tick died before the sendUpdates() at the end of it. A queen standoff
+	 * stopped the world for all ten players, and only stopped stopping it when
+	 * somebody backed off.
+	 *
+	 * Half a body per frame, away from the other one. Both queens run this
+	 * against each other, so the pair separates at a body a frame.
+	 */
+	bump(other) {
+		this.left += (this.left < other.left ? -1 : 1) * this.width / 2;
+	}
+
 	mReset() {
 		super.mReset();
 
@@ -1801,7 +1824,7 @@ class Queen extends Toon {
 							var e = new Event(CONST.ELE_BUMP);
 							e.extra = [this, o];
 							Game.instance.dispatchEvent(e);
-							this.bump();
+							this.bump(o);
 						}
 					} else this.attacked(o); // stabbed in the back
 				}
