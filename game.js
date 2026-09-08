@@ -1935,6 +1935,10 @@ class Queen extends Toon {
 				this.attack();
 		}
 
+		if(o instanceof Worker) {
+			if(o.warrior && o.attacking && o.facing(this)) this.attacked(o);
+		}
+
 		if(o instanceof Queen) {
 			if(o.attacking) {
 				if(o.facing(this)) {

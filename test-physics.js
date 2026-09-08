@@ -160,6 +160,67 @@ async function geometry() {
 		check("200 pickups add no listeners", Game.instance._listeners.length - before, 0);
 	}
 
+	console.log("\n-- a warrior can kill the queen --");
+	{
+		const setup = async (isWarrior, facesQueen) => {
+			Game.instance.releaseLevel();
+			await Game.instance.loadLevel("day");
+			Game.instance.dispatchEvent(new KQ.Event(CONST.GAME_START));
+			clearInterval(Game.instance.loopIntervalId);
+			Game.instance.loopIntervalId = null;
+
+			const level = Game.instance.virtual.level;
+			const queen = level.toons["teamBlue-queen"];
+			const worker = level.toons["teamGold-worker0"];
+			worker.mReset();
+			if(isWarrior) worker.gainWarrior();
+			worker.Invulnerable = false;
+			queen.Invulnerable = false;
+			worker.attack();
+			queen.top = 300; queen.left = 400; queen.direction = CONST.DIRECTION_LEFT;
+			worker.top = 300; worker.left = 395;
+			worker.direction = facesQueen ? CONST.DIRECTION_RIGHT : CONST.DIRECTION_LEFT;
+			return {queen, worker, eggs: () => KQ.Egg.eggsForTeam("teamBlue").length};
+		};
+
+		{
+			const s = await setup(true, true);
+			const before = s.eggs();
+			s.queen.collission(s.worker);
+			check("a warrior mid-swing costs her an egg", s.eggs() < before, true);
+		}
+		{
+			const s = await setup(false, true);
+			const before = s.eggs();
+			s.queen.collission(s.worker);
+			check("a plain drone does not", s.eggs(), before);
+		}
+		{
+			const s = await setup(true, false);
+			const before = s.eggs();
+			s.queen.collission(s.worker);
+			check("nor a warrior facing away", s.eggs(), before);
+		}
+		{
+			const s = await setup(true, true);
+			s.queen.Invulnerable = true;
+			const before = s.eggs();
+			s.queen.collission(s.worker);
+			check("nor one who catches her just respawned", s.eggs(), before);
+		}
+		{
+			const s = await setup(true, true);
+			Game.instance.virtual.level.eggs.forEach(e => { if(e.team == "teamBlue") e.hatched = true; });
+			let won = null;
+			const real = Game.instance.win;
+			Game.instance.win = (type, team) => { won = {type, team}; };
+			s.queen.collission(s.worker);
+			Game.instance.win = real;
+			check("out of eggs, it is a military win", won && won.type, CONST.WIN_MILITARY);
+			check("for the warrior's team", won && won.team, "teamGold");
+		}
+	}
+
 	console.log("\n-- a position that is not a number does not hang the loop --");
 	{
 		// hitTestBounds compares four ways and negates the result, so a NaN
