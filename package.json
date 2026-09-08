@@ -1,7 +1,7 @@
 {
   "name": "killer-queen",
   "version": "1.0.0",
-  "description": "A cover of the Killer Queen 10 player indie arcade game.",
+  "description": "A cover of the Killer Queen 10 player indie arcade game. Fork of jacksonkr/Killer-Queen by Jackson Rollins.",
   "main": "index.js",
   "dependencies": {
     "cheerio": "^1.0.0-rc.2",
@@ -18,17 +18,20 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jacksonkr/Killer-Queen-JS.git"
+    "url": "git+https://github.com/EllAchE/killer-queen-web.git"
   },
   "keywords": [
     "arcade",
     "multiplayer",
     "killerqueen"
   ],
-  "author": "Jackson Rollins",
+  "author": "Jackson Rollins (https://github.com/jacksonkr)",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/jacksonkr/Killer-Queen-JS/issues"
+    "url": "https://github.com/EllAchE/killer-queen-web/issues"
   },
-  "homepage": "https://github.com/jacksonkr/Killer-Queen-JS#readme"
+  "homepage": "https://github.com/EllAchE/killer-queen-web#readme",
+  "contributors": [
+    "Logan Harless (https://github.com/EllAchE)"
+  ]
 }
