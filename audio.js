@@ -33,6 +33,10 @@
 	var musicSource = null;
 	var musicPending = false;
 
+	// Set while Settings is previewing a match track outside a match. Any
+	// real scene change clears it; closing Settings resumes the scene music.
+	var previewing = false;
+
 	// Bumped by every stop. A load that finishes against a stale epoch is a
 	// track somebody has already navigated away from, and installing it would
 	// leave two loops running over each other.
@@ -220,20 +224,29 @@
 		musicSource = null;
 	}
 
-	function srcsFor(name) {
-		if(name === "lobby" || name === "victory")
-			return ["audio/music/" + name + ".ogg", "audio/music/" + name + ".mp3"];
-
+	function srcsForTrack(id) {
 		for(var i = 0; i < tracks.length; i++)
-			if(tracks[i].id === settings.musicTrack) return tracks[i].srcs;
+			if(tracks[i].id === id) return tracks[i].srcs;
 
 		// The chosen track is gone -- a drop-in that was deleted, most likely.
 		return tracks.length ? tracks[0].srcs : null;
 	}
 
+	function srcsFor(name) {
+		if(name === "lobby" || name === "victory")
+			return ["audio/music/" + name + ".ogg", "audio/music/" + name + ".mp3"];
+
+		return srcsForTrack(settings.musicTrack);
+	}
+
 	function applyScene() {
 		var c = audio();
 		if(!c) return;
+
+		// A scene change always wins over a preview: the match starting, the
+		// win cutting the music, the lobby returning -- none of them should
+		// leave the preview loop running underneath.
+		previewing = false;
 
 		stopMusic();
 		// Cleared here rather than only where a load settles: the early returns
@@ -247,9 +260,20 @@
 		var url = pick(srcsFor(scene));
 		if(!url) return;
 
-		var epoch = musicEpoch;   // stopMusic above just bumped it; this is ours
-		var loop = scene !== "victory";
+		startMusic(url, scene !== "victory");
+	}
 
+	/**
+	 * The epoch-guarded load-and-play behind both the scene music and the
+	 * Settings preview. A load that finishes against a stale epoch is a track
+	 * somebody has already navigated away from, and installing it would leave
+	 * two loops running over each other.
+	 */
+	function startMusic(url, loop) {
+		var c = audio();
+		if(!c) return;
+
+		var epoch = musicEpoch;
 		musicPending = true;
 		buffer(url).then(function(buf) {
 			if(epoch !== musicEpoch) return;   // stopped, or superseded, while loading
@@ -276,6 +300,34 @@
 		applyScene();
 	}
 
+	/**
+	 * Hear the match track from inside Settings. The picker lives in the
+	 * lobby, where the lobby loop is playing, so without this a new choice
+	 * changes nothing audible until the next round starts.
+	 */
+	function previewMatch() {
+		// Resolved before anything stops: no track (or no volume, or no
+		// context yet) leaves the lobby loop alone rather than silencing it
+		// for a preview that will never sound.
+		var url = pick(srcsForTrack(settings.musicTrack));
+		if(!url) return;
+
+		var c = audio();
+		if(!c || settings.musicVolume <= 0) return;
+
+		stopMusic();
+		musicPending = false;
+		previewing = true;
+
+		startMusic(url, true);
+	}
+
+	function stopPreview() {
+		if(!previewing) return;
+		previewing = false;
+		applyScene();
+	}
+
 	// ---- what site.js and hud.js talk to ----
 
 	window.kqxAudio = {
@@ -291,6 +343,11 @@
 
 		/** The match tracks the picker should offer, drop-ins included. */
 		tracks: function() { return tracks.slice(0); },
+
+		/** Back to the scene music after a Settings preview. */
+		stopPreview: function() {
+			try { stopPreview(); } catch(e) {}
+		},
 
 		settings: function() {
 			var out = {};
@@ -311,9 +368,15 @@
 					if((value <= 0) !== !musicSource) applyScene();
 				} else if(key === "sfxVolume" && sfxGain) {
 					sfxGain.gain.value = value;
-				} else if(key === "musicTrack") {
-					if(scene === "match") applyScene();
+			} else if(key === "musicTrack") {
+				if(scene === "match") applyScene();
+				else if(scene === "lobby") {
+					// "None" previews as the lobby loop itself: stopping the
+					// music and starting nothing would read as broken.
+					if(value === "off") stopPreview();
+					else previewMatch();
 				}
+			}
 			} catch(e) {}
 		}
 	};

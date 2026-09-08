@@ -118,6 +118,34 @@ const FULL_LIST = {tracks: [
 	check("still the one music node", musicNodes().length, before);
 	check("still playing", music(), "audio/music/lobby.ogg");
 
+	console.log("\n-- previewing the match music from Settings --");
+	// The picker lives in the lobby, where the lobby loop is playing, so a
+	// new choice has to sound here or it changes nothing audible until the
+	// next round starts.
+	trackList = FULL_LIST;
+	await A.refresh();
+	await settle();
+	A.set("musicTrack", "match-3");
+	await settle();
+	check("the match track previews over the lobby", music(), "audio/music/match-3.ogg");
+	check("looped, like it will be in the round",
+		musicNodes()[musicNodes().length - 1].loop, true);
+
+	A.set("musicTrack", "match-1");
+	await settle();
+	check("picking another previews that one instead", music(), "audio/music/match-1.ogg");
+
+	A.stopPreview();
+	await settle();
+	check("closing Settings brings the lobby loop back", music(), "audio/music/lobby.ogg");
+
+	// Back to the empty list the next section assumes: the match starting
+	// before the tracks arrive is its own race with its own checks.
+	trackList = {tracks: []};
+	await A.refresh();
+	await settle();
+	check("the lobby loop survived the reset", music(), "audio/music/lobby.ogg");
+
 	console.log("\n-- a match that starts before the track list arrives --");
 	// trackList is still empty here, which is the race: GAME_START can beat
 	// the fetch, and there is nothing to pick.

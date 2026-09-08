@@ -223,6 +223,8 @@
 					'<input type="range" min="0" max="1" step="0.05" data-kqx-audio="sfxVolume"></label>' +
 				'<label class="kqx-row">Match music ' +
 					'<select data-kqx-audio="musicTrack"></select></label>' +
+				'<p class="kqx-note">Changing it previews the track here in the lobby. ' +
+					'The match switches to it when a round starts.</p>' +
 				'<p class="kqx-note">Want your own track? Drop an .mp3 into ' +
 					"<b>audio/music/custom/</b> on the machine running the game and it " +
 					"appears in that list. Nothing is uploaded and nothing is committed.</p>" +
@@ -302,6 +304,9 @@
 			if(window.kqxClearKeys) window.kqxClearKeys();
 		} else {
 			settingsEl.classList.add("kqx-off");
+			// A match-track preview is for comparing inside Settings; the
+			// lobby loop comes back underneath it on close.
+			if(window.kqxAudio && window.kqxAudio.stopPreview) window.kqxAudio.stopPreview();
 		}
 	};
 
