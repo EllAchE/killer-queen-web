@@ -17,6 +17,7 @@ const CONST = {
 	USER_CHARACTER_SELECT:"USER_CHARACTER_SELECT",
 	USER_READY:"user_ready",
 	USER_DISCONNECT:"user_disconnect",
+	USER_QUIT:"user_quit",
 	TEAM_BLUE:"teamBlue",
 	TEAM_GOLD:"teamGold",
 	TOON_QUEEN:"queen",

@@ -47,6 +47,7 @@
 					<input id="kqx-name" type="text" maxlength="12" autocomplete="off" spellcheck="false"
 						placeholder="Your name" oninput="kqxNameChanged()" />
 					<button id="player-ready" onclick="playerReady()" disabled>Ready</button>
+					<button id="player-leave" onclick="playerQuit()" disabled>Leave</button>
 				</div>
 			</div>
 		</div>
@@ -122,6 +123,7 @@
 	</div>
 	<button id="kqx-tab" type="button" onclick="kqxHelp(true)">? How to play</button>
 	<button id="kqx-settings-tab" type="button" onclick="kqxSettings(true)">Settings</button>
+	<button id="kqx-quit-tab" type="button" onclick="playerQuit()">Quit</button>
 </body>
 
 </html>
