@@ -71,6 +71,42 @@ async function geometry() {
 		});
 		check("queens are 31x37 and workers 20x25", wrong, []);
 	}
+
+	console.log("\n-- a warrior kills the drone riding the snail --");
+	{
+		// Snail.loop tests every toon against the snail and runs the two
+		// halves of the collision in order: this.collission(toon), then
+		// toon.collission(this). When the first half is an enemy warrior
+		// reaching the rider, it kills them and nulls the snail's toon on the
+		// way past -- so the second half used to arrive at a snail with nobody
+		// on it and read o.toon.id off null.
+		//
+		// It threw out of Snail.loop, through the LOOP dispatch, and into
+		// Game.loop, where nothing catches it, so the tick died before its
+		// broadcast. A warrior killing a drone off the snail is ordinary play.
+		Game.instance.releaseLevel();
+		await Game.instance.loadLevel("day");
+		const level = Game.instance.virtual.level;
+		const snail = level.snail;
+		const rider = level.toons["teamBlue-worker0"];
+		const killer = level.toons["teamGold-worker0"];
+
+		[rider, killer].forEach(t => { t.mReset(); t.Invulnerable = false; t.active = true; });
+
+		rider.left = snail.left; rider.top = snail.top;
+		snail.collission(rider);
+		rider.collission(snail);
+		check("the drone is riding", snail.toon && snail.toon.id, rider.id);
+
+		killer.gainWarrior();
+		killer.left = snail.left + 2;
+		killer.top = snail.top + 2;
+
+		let threw = null;
+		try { snail.loop(); } catch(e) { threw = e.constructor.name + ": " + e.message; }
+		check("the warrior does not take the tick down with the rider", threw, null);
+		check("and the snail has nobody on it", snail.toon, null);
+	}
 }
 
 // ------------------------------------------------------------- the matcher --

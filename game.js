@@ -1649,7 +1649,13 @@ class Worker extends Toon {
 		}
 
 		if(o instanceof Snail) {
-			if(o.toon.id == this.id)
+			// Guarded because the snail can lose its rider between the two
+			// halves of one collision. Snail.loop tests every toon against
+			// itself and calls this.collission(toon) before toon.collission
+			// (this) -- and when that first call is an enemy warrior reaching
+			// the rider, it kills them and nulls this.toon on the way past.
+			// The second call then arrives at a snail with nobody on it.
+			if(o.toon && o.toon.id == this.id)
 				this.snail = true;
 		}
 
