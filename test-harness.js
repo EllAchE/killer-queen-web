@@ -25,17 +25,23 @@
  * because the four things it fails on are all real and none of them are fixed
  * yet. In rough order of what it costs a player:
  *
- *   no two users share an id     two tabs handed the same Date.now(), after
- *                                which one disconnect unseats the wrong
- *                                player and their controls stop responding
- *   rapid-ready-toggle           the countdown is re-armed per ready, so a
- *                                match can start 25 times over
- *   hostile-payloads             three handlers deref a null payload
- *   entities stay on the board   the queen flies off the top and there is no
- *                                ceiling to bring her back
+ *   jump-mashing        both queens leave the top of the board inside twenty
+ *                       seconds of ordinary play and never come back, which
+ *                       ends the match without ending it
+ *   id-uniqueness       two sockets handed the same Date.now(), after which
+ *                       one disconnect unseats a different, still-connected
+ *                       player and their controls stop answering
+ *   rapid-ready-toggle  the countdown is re-armed per ready, so one lobby can
+ *                       start the match twenty-five times over
+ *   hostile-payloads    three socket handlers deref a null payload
  *
  * Each has a fix coming as its own change; this file is the thing that proves
  * them, so it goes in first and the reds turn green one at a time.
+ *
+ * What it does NOT find is worth recording too. Eight minutes of ten-player
+ * soak held RSS flat at ~90MB, the broadcast gap at 16ms and the update rate
+ * at 62/s, with no uncaught exceptions -- so a slow leak, which was the
+ * leading theory for a session that degraded, is not what is happening here.
  */
 "use strict";
 
@@ -665,6 +671,63 @@ scenario("simultaneous-join", "ten people open the link at the same moment", asy
 	}).map(c => c.toonId);
 
 	ctx.expect("every remaining player can still drive their bee", dead, []);
+});
+
+scenario("id-uniqueness", "everyone opens the join link at once", async ctx => {
+	// A timestamp collides only when two handshakes land inside the same
+	// millisecond, so this is a race and this scenario is a sampler, not a
+	// proof. It reproduces the shape that actually collides: a cold server and
+	// one tight opening batch, which is how a LAN game starts and is the only
+	// arrangement measured here that collides at all -- spread the accepts out
+	// with a bigger batch or a warmed server and they stop sharing a
+	// millisecond. Expect it to catch the bug on roughly half of runs.
+	//
+	// The reliable detector is the `no two users share an id` invariant, which
+	// runs after all fourteen scenarios: across that many the odds of missing
+	// a collision every time are small, and against an id that is unique by
+	// construction it is silent every time.
+	const watcher = new Client(ctx.port, {name: "watch"});
+	await watcher.connect();
+	const cs = ctx.clients = [watcher].concat(await connectAll(ctx.port, 20));
+	await sleep(800);
+
+	const users = (watcher.menu && watcher.menu.users) || [];
+	ctx.expect("the server saw every socket", users.length, cs.length);
+
+	const byId = {};
+	users.forEach(u => { byId[u.id] = (byId[u.id] || 0) + 1; });
+	ctx.expect("no id was handed out twice",
+		Object.keys(byId).filter(k => byId[k] > 1).map(k => "id " + k + " went to " + byId[k] + " sockets"), []);
+});
+
+scenario("jump-mashing", "everybody taps jump, the way everybody does", async ctx => {
+	// The queen is supposed to fly -- that is what she does in the arcade --
+	// and `Worker.jump` lets a warrior go again in mid-air too. Neither is the
+	// bug. The bug is that on a map whose config wraps only `x`, nothing
+	// bounds `y` at all: visibilityCheck wraps the named axis and leaves the
+	// other one open, so anyone who can jump without being grounded climbs out
+	// of the top of the board and gravity never gets them back.
+	//
+	// Jumping on the spot is not enough, which is worth knowing: the ceiling
+	// strip holds anyone directly under it, so getting out means wandering
+	// sideways until you are under one of the gaps in it. Hence the horizontal
+	// key -- this is someone moving around and tapping jump, not a lab setup.
+	// Twenty seconds; both queens are usually gone inside ten.
+	const cs = ctx.clients = await connectAll(ctx.port, 10);
+	await seatEveryone(cs);
+	ctx.expect("the match is running", cs.every(c => c.started), true);
+
+	const stop = fuzzInputs(cs);
+	await sleep(20000);
+	stop();
+	cs.forEach(c => c.keys([]));
+	await sleep(500);
+
+	const escaped = ALL_TOONS.filter(id => {
+		const o = cs[0].world.get(id);
+		return o && o.top < -200;
+	});
+	ctx.expect("nobody jumped their way off the board", escaped, []);
 });
 
 scenario("hostile-payloads", "clients that send things the page never would", async ctx => {
