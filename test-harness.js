@@ -21,25 +21,22 @@
  *   node test-harness.js --verbose       per-client event traces
  *
  * Exit status is 0 only if every scenario passed and the server logged no
- * uncaught exception. It does not currently exit 0: this lands red on purpose,
- * because the four things it fails on are all real and none of them are fixed
- * yet. In rough order of what it costs a player:
+ * uncaught exception. It is green, and each scenario that is green now was red
+ * when it was written -- these are the five faults it was built to catch, all
+ * since fixed, kept as the regression cases for them:
  *
- *   queen-standoff      the two queens meeting head on throws out of the tick
- *                       every frame they touch, halving the broadcast rate
- *                       for all ten players until somebody backs off
- *   jump-mashing        both queens leave the top of the board inside twenty
- *                       seconds of ordinary play and never come back, which
- *                       ends the match without ending it
+ *   queen-standoff      the two queens meeting head on threw out of the tick
+ *                       every frame they touched, halving the broadcast rate
+ *                       for all ten players until somebody backed off
+ *   jump-mashing        both queens left the top of the board inside twenty
+ *                       seconds of ordinary play and never came back, which
+ *                       ended the match without ending it
  *   id-uniqueness       two sockets handed the same Date.now(), after which
- *                       one disconnect unseats a different, still-connected
- *                       player and their controls stop answering
- *   rapid-ready-toggle  the countdown is re-armed per ready, so one lobby can
- *                       start the match twenty-five times over
- *   hostile-payloads    three socket handlers deref a null payload
- *
- * Each has a fix coming as its own change; this file is the thing that proves
- * them, so it goes in first and the reds turn green one at a time.
+ *                       one disconnect unseated a different, still-connected
+ *                       player and their controls stopped answering
+ *   rapid-ready-toggle  the countdown was re-armed per ready, so one lobby
+ *                       could start the match twenty-five times over
+ *   hostile-payloads    three socket handlers dereferenced a null payload
  *
  * What it does NOT find is worth recording too. Eight minutes of ten-player
  * soak held RSS flat at ~90MB, the broadcast gap at 16ms and the update rate
@@ -547,16 +544,24 @@ scenario("full-lobby", "ten players pick, ready, and the match starts", async ct
 });
 
 scenario("character-race", "ten clients grab the same bee in the same breath", async ctx => {
-	const cs = ctx.clients = await connectAll(ctx.port, 10);
+	// A watcher that never picks, because the winner is the one client that
+	// cannot answer this question. MENU_UPDATE only goes to users with no
+	// toonId, and the only dispatch here comes from the winning select -- the
+	// nine that lose return before dispatching anything. So the winner's menu
+	// is still the empty one it got on connect, and reading the roster off an
+	// arbitrary client reports nobody holding the queen exactly when that
+	// arbitrary client is the one holding it.
+	const watcher = new Client(ctx.port, {name: "watch"});
+	await watcher.connect();
+	const cs = ctx.clients = [watcher].concat(await connectAll(ctx.port, 10));
+	const racers = cs.slice(1);
 
 	// No stagger at all: the point is to land ten selects inside one tick.
-	cs.forEach(c => c.select("teamBlue-queen"));
+	racers.forEach(c => c.select("teamBlue-queen"));
 	await sleep(800);
 
-	// The server's own view, as told to any client that has not picked.
-	const menu = cs.map(c => c.menu).filter(Boolean).pop();
-	const holders = menu ? menu.users.filter(u => u.toonId === "teamBlue-queen") : [];
-	const refused = cs.filter(c => c.alerts.some(a => /already taken/.test(a || "")));
+	const holders = (watcher.menu.users || []).filter(u => u.toonId === "teamBlue-queen");
+	const refused = racers.filter(c => c.alerts.some(a => /already taken/.test(a || "")));
 
 	ctx.expect("exactly one client holds the queen", holders.length, 1);
 	ctx.expect("the other nine were told it was taken", refused.length, 9);
