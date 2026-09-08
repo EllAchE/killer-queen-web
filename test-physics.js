@@ -108,6 +108,58 @@ async function geometry() {
 		check("and the snail has nobody on it", snail.toon, null);
 	}
 
+	console.log("\n-- a berry whose carrier the snail ate --");
+	{
+		Game.instance.releaseLevel();
+		await Game.instance.loadLevel("day");
+		Game.instance.dispatchEvent(new KQ.Event(CONST.GAME_START));
+		clearInterval(Game.instance.loopIntervalId);
+		Game.instance.loopIntervalId = null;
+
+		const level = Game.instance.virtual.level;
+		const berry = level.berries[0];
+		const drone = level.toons["teamBlue-worker0"];
+		drone.mReset();
+		drone.Invulnerable = false;
+
+		berry.collission(drone);
+		drone.berry = berry;
+		check("the drone is carrying it", berry.toon && berry.toon.id, drone.id);
+
+		const swallow = new KQ.Event(CONST.SNAIL_ATTACK);
+		swallow.extra = {toon: drone};
+		Game.instance.dispatchEvent(swallow);
+
+		// It used to be set to false here, and berryCheck skips any berry whose
+		// toon `!= null` -- which false is. So the berry sat where it was
+		// dropped and could never be picked up again: gone from the round, and
+		// with it one of the slots an economic win has to fill.
+		check("the berry is free again", berry.toon, null);
+		check("and berryCheck will offer it", berry.toon != null, false);
+	}
+
+	console.log("\n-- picking berries up does not accumulate listeners --");
+	{
+		// The snail handler used to be registered inside collission, so every
+		// pickup added another and nothing removed any. The removeEventListener
+		// meant to clean up is broken, and even working it matched on type and
+		// dispatcher -- which every listener on Game.instance shares -- so it
+		// would have unhooked some other berry.
+		Game.instance.releaseLevel();
+		await Game.instance.loadLevel("day");
+		const level = Game.instance.virtual.level;
+		const drone = level.toons["teamBlue-worker0"];
+
+		const before = Game.instance._listeners.length;
+		for(let i = 0; i < 200; i++) {
+			const b = level.berries[i % level.berries.length];
+			b.toon = null;
+			drone.berry = null;
+			b.collission(drone);
+		}
+		check("200 pickups add no listeners", Game.instance._listeners.length - before, 0);
+	}
+
 	console.log("\n-- a position that is not a number does not hang the loop --");
 	{
 		// hitTestBounds compares four ways and negates the result, so a NaN

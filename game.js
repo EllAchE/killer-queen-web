@@ -609,6 +609,32 @@ class Berry extends Updateable {
 				this.toon = null;
 			}
 		});
+
+		/**
+		 * Dropped when the snail eats whoever was carrying this, which is the
+		 * same outcome as ATTACKED above and now says so the same way.
+		 *
+		 * One listener for the life of the berry. This used to be added in
+		 * collission, so every single pickup added another and nothing ever
+		 * took one away: two hundred pickups left two hundred and nine
+		 * snail_attack listeners where the level had started with nine, and
+		 * every one of them runs on every dispatch. The removeEventListener
+		 * call that was supposed to clean up could not -- it is broken, and
+		 * even working it matched on type and dispatcher, which every listener
+		 * on Game.instance shares, so it would have removed some other berry's.
+		 * The Snail has the same note for the same reason.
+		 *
+		 * And null, not false. berryCheck skips a berry whose toon `!= null`,
+		 * and `false != null` is true, so a berry set to false was never
+		 * picked up again -- gone from the round, and with it one of the slots
+		 * an economic win has to fill.
+		 */
+		this.listen(CONST.SNAIL_ATTACK, event => {
+			if(event.extra.toon == this.toon) {
+				this.toon = null;
+			}
+		});
+
 		this.listen(CONST.BERRY_PICKUP, event => {
 			if(event.extra.berry != this) return;
 
@@ -627,14 +653,6 @@ class Berry extends Updateable {
 
 		if(o instanceof Worker) {
 			this.toon = o;
-
-			this.listen(CONST.SNAIL_ATTACK, event => {
-				if(event.extra.toon == this.toon) {
-					this.toon = false;
-
-					Game.instance.removeEventListener(event);
-				}
-			});
 		}
 
 		if(o instanceof Goal) {
