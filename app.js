@@ -290,7 +290,6 @@ io.sockets.on("connection", socket => {
 			socket.emit(KQ.CONST.KEY_STATE, {toonId: user.toonId, keys: data});
 	});
 
-	// todo: check game ready on disconnect (in case users are in lobby and one leaves);
 	socket.on('disconnect', data => {
 		// socket.broadcast.emit(COMMAND.GOODBYE, user);
 		var e = new KQ.Event(KQ.CONST.USER_DISCONNECT);
@@ -308,8 +307,22 @@ io.sockets.on("connection", socket => {
 
 		broadcastNames();
 
-		if(KQ.Game.instance.users.length)
+		if(KQ.Game.instance.users.length) {
 			KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.MENU_UPDATE));
+
+			/**
+			 * The tab that just closed may have been the only one the lobby
+			 * was still waiting on. Nobody is left to touch that ready flag,
+			 * so the gate has to run again here -- otherwise everyone who is
+			 * already readied sits on the menu until one of them toggles
+			 * ready off and on to retrigger it.
+			 */
+			if(!KQ.Game.instance.gameInProgress &&
+					KQ.Game.readyToStart(KQ.Game.instance.users)) {
+				KQ.Game.instance.countDownStartTime = Date.now();
+				KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.GAME_COUNTDOWN));
+			}
+		}
 		else {
 			KQ.Game.instance.noUsersResetDelayTimeoutID = setTimeout(() => {
 				KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.GAME_RESET));
