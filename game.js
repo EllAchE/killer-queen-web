@@ -1965,7 +1965,32 @@ class Game extends EventDispatcher {
 			}, CONST.GAME_RESET_DELAY);
 		});
 		this.addEventListener(CONST.GAME_COUNTDOWN, event => {
+			/**
+			 * One countdown at a time.
+			 *
+			 * Every ready that completes the lobby dispatched this, and each
+			 * dispatch armed another timer over the top of countdownTimer --
+			 * which holds one id, so every earlier chain was still running and
+			 * no longer cancellable. They all came due, and each one started
+			 * the match: sixty ready toggles inside the countdown window
+			 * produced twenty-five GAME_STARTs, and since GAME_START mResets
+			 * every object on the board, that is twenty-five times everybody
+			 * was yanked back to their spawn mid-match.
+			 *
+			 * It does not take a hostile client. Ten people readying up within
+			 * a second of each other, or anybody having second thoughts and
+			 * clicking twice, lands inside the same window.
+			 *
+			 * The timer nulls its own id below before deciding what happens
+			 * next, so the countdown re-arming itself for the next second
+			 * still passes through here -- it is only a second, concurrent
+			 * countdown that is turned away.
+			 */
+			if(Game.instance.countdownTimer) return;
+
 			Game.instance.countdownTimer = setTimeout(() => {
+				Game.instance.countdownTimer = null;
+
 				var diff = Date.now() - Game.instance.countDownStartTime;
 				diff = Math.round(diff / 1000);
 
@@ -1987,6 +2012,11 @@ class Game extends EventDispatcher {
 			Game.instance.gameInProgress = false;
 			clearInterval(Game.instance.loopIntervalId);
 			Game.instance.loopIntervalId = null;
+
+			// A countdown still pending across a reset would start the next
+			// round on its own, without anyone having readied for it.
+			clearTimeout(Game.instance.countdownTimer);
+			Game.instance.countdownTimer = null;
 		});
 		this.addEventListener(CONST.MENU_UPDATE, event => {
 			var us = [];
