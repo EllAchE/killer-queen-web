@@ -243,6 +243,28 @@ class Collideable extends EventDispatcher {
 	 */
 	hitTestBounds(box) {
 		var b = this.boundingBox;
+
+		/**
+		 * A coordinate that is not a number makes every comparison below
+		 * false, and the negation at the end turns that into "overlapping" --
+		 * so a NaN position collides with everything on the board.
+		 *
+		 * groundCheck is where that stops being a wrong answer and becomes a
+		 * dead server. Its four while loops nudge a toon 0.1px at a time until
+		 * it is clear of a ground element, and a collision that reports true
+		 * whatever the position never clears. The loop does not end. Nothing
+		 * throws, nothing is logged, the event loop simply stops: the process
+		 * stays alive and the port stays open while every player's screen
+		 * freezes. Of everything found in here, this is the only fault that
+		 * produces the crash people describe.
+		 *
+		 * Nothing can be known to overlap a position that is not a number, so
+		 * the honest answer is no, and the loops above it terminate.
+		 */
+		if(!isFinite(b.x) || !isFinite(b.y) || !isFinite(b.width) || !isFinite(b.height)
+		|| !isFinite(box.x) || !isFinite(box.y) || !isFinite(box.width) || !isFinite(box.height))
+			return false;
+
 		var test = (b.x > box.x+box.width
 			    || b.x+b.width < box.x
 			    || b.y > box.y+box.height
@@ -1063,6 +1085,16 @@ class Toon extends Updateable {
 		super(id);
 
 		this.mass = CONST.TOON_MASS;
+
+		// Only mReset set this, and mReset only runs on GAME_START. A toon
+		// that loops before its first round -- which is every toon, for the
+		// window between loadLevel building it and anyone readying up -- had
+		// `undefined` here, and gravityCheck's `accel += rate` turns that into
+		// NaN on the first frame, then writes it to top. That is the one
+		// reachable way this codebase produces the NaN geometry guarded
+		// against in hitTestBounds, and it took five minutes of poking to hit
+		// by accident.
+		this.accel = 0;
 
 		this.listen(CONST.LOOP, event => {
 			this.loop();

@@ -107,6 +107,56 @@ async function geometry() {
 		check("the warrior does not take the tick down with the rider", threw, null);
 		check("and the snail has nobody on it", snail.toon, null);
 	}
+
+	console.log("\n-- a position that is not a number does not hang the loop --");
+	{
+		// hitTestBounds compares four ways and negates the result, so a NaN
+		// coordinate makes all four false and reports an overlap with
+		// everything. groundCheck then nudges 0.1px at a time towards a
+		// collision that never clears, and the process stops answering: event
+		// loop dead, port still open, nothing logged. It is the only fault in
+		// here that produces the crash people actually describe.
+		Game.instance.releaseLevel();
+		await Game.instance.loadLevel("day");
+		const level = Game.instance.virtual.level;
+		const ground = level.ground[0];
+
+		check("NaN never reports an overlap", ground.hitTestBounds({x: NaN, y: 100, width: 20, height: 25}), false);
+		check("and neither does Infinity", ground.hitTestBounds({x: 0, y: Infinity, width: 20, height: 25}), false);
+		check("a real overlap still reports one",
+			ground.hitTestBounds({x: ground.left, y: ground.top, width: 10, height: 10}), true);
+
+		// Counted rather than timed: a regression here does not fail slowly,
+		// it never returns at all, so the test has to break the loop itself
+		// instead of waiting for one that will not end.
+		const toon = level.toons["teamBlue-worker0"];
+		toon.mReset();
+		toon.top = NaN;
+		let calls = 0;
+		const proto = Object.getPrototypeOf(ground);
+		const real = proto.hitTestBounds;
+		proto.hitTestBounds = function(box) {
+			if(++calls > 200000) throw new Error("groundCheck did not terminate");
+			return real.call(this, box);
+		};
+		let stuck = null;
+		try { toon.groundCheck(); } catch(e) { stuck = e.message; }
+		proto.hitTestBounds = real;
+		check("groundCheck returns on a NaN toon", stuck, null);
+	}
+
+	console.log("\n-- a toon has physics before its first round --");
+	{
+		// gravityCheck does `accel += rate`, so an accel of undefined is NaN
+		// on frame one and lands straight in top. mReset fixes it, but mReset
+		// only runs on GAME_START, and the level loops before that.
+		Game.instance.releaseLevel();
+		await Game.instance.loadLevel("day");
+		const fresh = Game.instance.virtual.level.toons["teamBlue-worker0"];
+		check("accel starts at a number", fresh.accel, 0);
+		fresh.gravityCheck();
+		check("and one frame of gravity keeps top numeric", isNaN(fresh.top), false);
+	}
 }
 
 // ------------------------------------------------------------- the matcher --
