@@ -263,6 +263,15 @@ io.sockets.on("connection", socket => {
 
 		broadcastNames();
 		KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.MENU_UPDATE));
+
+		// The quitter may have been the only one the lobby was still waiting
+		// on. Same re-check as the disconnect path: without it everyone
+		// already readied sits on the menu until someone toggles ready.
+		if(!KQ.Game.instance.gameInProgress &&
+				KQ.Game.readyToStart(KQ.Game.instance.users)) {
+			KQ.Game.instance.countDownStartTime = Date.now();
+			KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.GAME_COUNTDOWN));
+		}
 	})
 
 	socket.on(KQ.CONST.USER_MAP_SELECT, data => {
