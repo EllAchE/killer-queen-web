@@ -324,7 +324,12 @@ io.sockets.on("connection", socket => {
 			return;
 		}
 
+		// Nulled as well as cleared: the countdown gate reads this to decide
+		// whether one is already running, and a stale id would refuse every
+		// countdown from here on.
 		clearTimeout(KQ.Game.instance.countdownTimer);
+		KQ.Game.instance.countdownTimer = null;
+
 		KQ.Game.instance.releaseLevel();
 		KQ.Game.instance.loadLevel(data.map).then(() => {
 			// Everyone un-readies: you agreed to play the old board.
