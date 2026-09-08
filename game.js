@@ -204,14 +204,32 @@ class EventDispatcher {
 
 		return null;
 	}
-	removeEventListener(event) { // todo: not working
-		var list = this._listeners;
-		for(var i in list) {
-			var l = list[i];
-			if(l.type == event.type
-			&& l.currentTarget == event.currentTarget)
+	/**
+	 * Drop one listener, identified by the function that was registered.
+	 *
+	 * The old signature took a dispatched Event and matched on its type and
+	 * currentTarget, which cannot single anything out: every listener here was
+	 * registered with `currentTarget: this`, so that pair describes every
+	 * listener of that type on the dispatcher rather than one of them.
+	 *
+	 * It never removed anything anyway. A missing pair of braces put the
+	 * `return true` outside the `if`, so the loop returned on its first
+	 * iteration whether or not that entry matched -- reporting success, having
+	 * spliced nothing, unless the match happened to be at index zero. It was
+	 * marked `todo: not working` and it was not.
+	 *
+	 * The callback is the only thing that distinguishes one listener from
+	 * another, so it is what this matches on now.
+	 *
+	 * @return bool whether a listener was removed
+	 */
+	removeEventListener(type, callback) {
+		for(var i = 0; i < this._listeners.length; i++) {
+			var l = this._listeners[i];
+			if(l.type == type && l.callback === callback) {
 				this._listeners.splice(i, 1);
 				return true;
+			}
 		}
 
 		return false;

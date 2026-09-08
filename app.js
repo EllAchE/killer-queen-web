@@ -253,9 +253,20 @@ io.sockets.on("connection", socket => {
 	KQ.Game.instance.dispatchEvent(new KQ.Event(KQ.CONST.MENU_UPDATE));
 	socket.emit(KQ.CONST.MAP_UPDATE, {map: KQ.Game.instance.map, maps: KQ.MAPS});
 
-	KQ.Game.instance.addEventListener(KQ.CONST.GAME_RESET, event => {
+	/**
+	 * Named and kept, because it has to come back off again on disconnect.
+	 *
+	 * This was an inline arrow with no reference held anywhere, so every
+	 * socket that ever connected left one behind: the count only ever went up,
+	 * for the life of the process, and every one of them ran on every reset
+	 * writing to a user object nobody was using any more. addEventListener
+	 * re-sorts the whole array on each add, so the cost of connecting grew
+	 * with the number of people who had already left.
+	 */
+	function clearToonOnReset() {
 		user.toonId = null;
-	})
+	}
+	KQ.Game.instance.addEventListener(KQ.CONST.GAME_RESET, clearToonOnReset);
 
 	socket.on(KQ.CONST.USER_CHARACTER_SELECT, data => {
 		if(!data) return;
@@ -385,6 +396,8 @@ io.sockets.on("connection", socket => {
 		// indexOf finds this user and nobody else, whatever the id says.
 		var at = KQ.Game.instance.users.indexOf(user);
 		if(at >= 0) KQ.Game.instance.users.splice(at, 1);
+
+		KQ.Game.instance.removeEventListener(KQ.CONST.GAME_RESET, clearToonOnReset);
 
 		console.log("DISCONNECT", KQ.Game.instance.users.length);
 

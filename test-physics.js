@@ -429,6 +429,39 @@ function engine() {
 	}
 }
 
+console.log("\n-- listeners can be taken back off --");
+{
+	// The old removeEventListener matched a dispatched Event's type and
+	// currentTarget, which cannot single anything out: every listener is
+	// registered with `currentTarget: this`, so that pair describes all of
+	// them. And a missing pair of braces put its `return true` outside the
+	// `if`, so it returned on the first iteration whether or not that entry
+	// matched -- reporting success having removed nothing.
+	const d = new KQ.EventDispatcher();
+	const a = () => {}, b = () => {}, c = () => {};
+	d.addEventListener("tick", a);
+	d.addEventListener("tick", b);
+	d.addEventListener("other", c);
+
+	check("it removes the one it was given", d.removeEventListener("tick", b), true);
+	check("and only that one", d._listeners.length, 2);
+	check("the right one is gone", d._listeners.map(l => l.callback).indexOf(b), -1);
+	check("its sibling of the same type stays", d._listeners.map(l => l.callback).indexOf(a) >= 0, true);
+
+	check("removing it twice reports nothing to remove", d.removeEventListener("tick", b), false);
+	check("a callback never registered", d.removeEventListener("tick", () => {}), false);
+	check("the right callback under the wrong type", d.removeEventListener("other", a), false);
+	check("nothing was removed by the misses", d._listeners.length, 2);
+
+	// The leak this exists to close: one listener per socket, for the life of
+	// the process, because nothing held a reference to take back off.
+	const conn = [];
+	for(let i = 0; i < 50; i++) { const f = () => {}; conn.push(f); d.addEventListener("game_reset", f); }
+	check("50 connections add 50", d._listeners.length, 52);
+	conn.forEach(f => d.removeEventListener("game_reset", f));
+	check("and 50 disconnects take them away", d._listeners.length, 2);
+}
+
 console.log("\n-- a stylesheet value the parser cannot resolve --");
 {
 	// This used to end `return s`, and no `s` existed in that scope, so any
