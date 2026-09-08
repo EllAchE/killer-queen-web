@@ -102,9 +102,41 @@ console.log("\n-- wrap follows the map, not the engine --");
 	};
 
 	check("day sends you off the side and back on", await walkOff("day", "x") > 700, true);
-	check("but not off the bottom", await walkOff("day", "y"), 600 + 20);
 	check("night sends you off the bottom and back on", await walkOff("night", "y"), 0);
-	check("but walls you in at the sides", await walkOff("night", "x"), -20);
+
+	// The axis a map does not wrap is not a free axis: it used to do nothing
+	// at all, so anything that got past the board's edge kept going. Coming
+	// back to the edge is the whole point -- coming back to the far side would
+	// be a wrap, which is the thing these maps are declaring they do not do.
+	check("day puts you back at the bottom instead", await walkOff("day", "y"), 600 - 20);
+	check("and does not wrap you to the top", await walkOff("day", "y") == 0, false);
+	check("night walls you in at the sides", await walkOff("night", "x"), -20);
+}
+
+console.log("\n-- and a toon cannot leave the board on the axis that does not wrap --");
+{
+	// The Day board is a full-width ceiling strip ten pixels deep, and a toon
+	// that gets its middle into that strip is pushed up out of it by the same
+	// loop that stands it on a floor. Above the board there was nothing: the
+	// queen flies and a warrior jumps again in mid-air, so both of them simply
+	// climbed, and twenty seconds of ordinary play put both queens ten
+	// thousand pixels up where they could not be seen, reached, or killed.
+	Game.instance.releaseLevel();
+	await Game.instance.loadLevel("day");
+	const t = level().toons["teamBlue-queen"];
+	t.width = t.height = 20;
+
+	t.top = -10000;
+	t.left = 400;
+	t.visibilityCheck();
+	check("a toon far above the board is brought back", t.top, -20);
+
+	// But not so far back that it is shoved into the ceiling it is resting on:
+	// a body's worth of headroom is exactly what standing on that strip needs,
+	// and clamping tighter would fight groundCheck every frame.
+	t.top = -15;
+	t.visibilityCheck();
+	check("and one resting on the ceiling is left alone", t.top, -15);
 }
 
 console.log("\n-- the warrior bonus arms everyone --");
