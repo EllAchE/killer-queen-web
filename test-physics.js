@@ -13,7 +13,7 @@ global.io = {emit: () => {}, sockets: {emit: () => {}}};
 global.fs = require('fs');
 
 const KQ = require('./game.js');
-const {CONST, MAPS, Game, Ground, Worker, Queen} = KQ;
+const {CONST, MAPS, Game, Ground, Worker, Queen, cssLength} = KQ;
 
 new Game(); // singleton, sets Game.instance
 
@@ -375,6 +375,27 @@ function engine() {
 		run(q, 200);
 		check("she lands on the floor", Math.round(q.top + q.height), 300);
 	}
+}
+
+console.log("\n-- a stylesheet value the parser cannot resolve --");
+{
+	// This used to end `return s`, and no `s` existed in that scope, so any
+	// value without "px" threw ReferenceError out of loadLevel. The promise
+	// rejected, app.js logged it, and the board was left half-built with the
+	// game running on it. `top: 0` was enough.
+	check("px is stripped", cssLength("10px"), 10);
+	check("a bare zero is a length", cssLength("0"), 0);
+	check("whitespace does not matter", cssLength("  24px "), 24);
+	check("negatives survive", cssLength("-100px"), -100);
+	check("so do fractions", cssLength("3.5px"), 3.5);
+
+	// Refused rather than guessed at: there is no document here to resolve
+	// them against, and parseFloat would turn "50%" into the pixel count 50.
+	check("a percentage is not a pixel count", cssLength("100%"), undefined);
+	check("auto has no value", cssLength("auto"), undefined);
+	check("calc needs a layout", cssLength("calc(100% - 5px)"), undefined);
+	check("two lengths are not one", cssLength("10px 4px"), undefined);
+	check("a missing declaration", cssLength(undefined), undefined);
 }
 
 (async () => {

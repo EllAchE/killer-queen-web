@@ -1918,6 +1918,38 @@ class Queen extends Toon {
 }
 
 /**
+ * A CSS length as a number of pixels, or undefined if it is not one.
+ *
+ * The body of this used to end `return s`, and no `s` exists anywhere in that
+ * scope, so every value that did not contain "px" threw ReferenceError.
+ *
+ * It threw from inside loadLevel's readFile callback, which is worse than it
+ * sounds: an async throw does not reject the promise it happens under, so
+ * loadLevel's own .catch never ran and the promise never settled at all. The
+ * throw escaped to the uncaughtException handler in app.js, which logs it and
+ * lets the server carry on -- listening, apparently healthy, on a board that
+ * stopped being built at the offending element. Measured on the Day map with
+ * one such value: two objects parsed instead of a hundred and thirty seven.
+ *
+ * A stylesheet is the natural place to reach for it. `width: auto` does it.
+ * So does a bare `0`.
+ *
+ * Percentages, `auto` and `calc()` are refused rather than guessed at. There
+ * is no document here to lay them out against, and parseFloat would turn
+ * "50%" into the number 50, which is a pixel count nobody asked for and the
+ * kind of wrong that only shows up as a body in the wrong place much later.
+ *
+ * @return number, or undefined when the value cannot be resolved
+ */
+function cssLength(str) {
+	if(typeof str != "string") return undefined;
+	if(!/^\s*-?(\d+\.?\d*|\.\d+)\s*(px)?\s*$/.test(str)) return undefined;
+
+	var n = parseFloat(str);
+	return isFinite(n) ? n : undefined;
+}
+
+/**
  * Which declarations a stylesheet gives an element carrying these classes.
  *
  * Matching is by whole class token, and only for selectors that are a single
@@ -2341,14 +2373,6 @@ class Game extends EventDispatcher {
 							break;
 					}
 
-					// strip 'px' and cast obj as number
-					var s2n = (str) => {
-						if(str.indexOf('px') >= 0) {
-							return +(str.replace('px',''))
-						}
-						return s;
-					}
-
 					var flattenJsonCss = function(element, classes) {
 						return Object.assign(classes, element); // element overrides by default
 					}
@@ -2356,14 +2380,15 @@ class Game extends EventDispatcher {
 					if(vobj) {
 						var j = styleToJson(o.attribs.style);
 						j = flattenJsonCss(j, vstyle);
+						// Only the values that resolved. A property left off
+						// keeps the zero Virtual was built with, which is a
+						// wrong position; assigning undefined would be a NaN
+						// one, and NaN spreads through every sum it touches.
 						var r = {};
-						r.left = s2n(j.left);
-						r.top = s2n(j.top);
-
-						if(j.width)
-							r.width = s2n(j.width);
-						if(j.height)
-							r.height = s2n(j.height);
+						["left", "top", "width", "height"].forEach(prop => {
+							var n = cssLength(j[prop]);
+							if(n !== undefined) r[prop] = n;
+						});
 
 						vobj.initCSS = r;
 					}
@@ -2402,4 +2427,5 @@ module.exports =  {
 	Queen:				Queen,
 	Game:				Game,
 	styleForClasses:	styleForClasses,
+	cssLength:		cssLength,
 }
