@@ -1935,27 +1935,6 @@ class Queen extends Toon {
 				this.attack();
 		}
 
-		/**
-		 * A warrior with a swing out kills the queen, which is the whole
-		 * military win and was not reachable.
-		 *
-		 * Worker.collission takes damage from `o instanceof Worker`, and a
-		 * Queen is a Toon but not a Worker, so nothing on the queen's side
-		 * ever answered a warrior. She would auto-attack the branch above,
-		 * kill him, and take nothing back: tested directly, a warrior swinging
-		 * at her left her egg count untouched and died to the counter.
-		 *
-		 * Rounds still ended: the two queens can kill each other, and they do.
-		 * What could not happen was the arcade's main military route, a
-		 * warrior getting through to the enemy queen -- so eight of the ten
-		 * players had no way to threaten her at all. Most visible on the
-		 * Bonus: Military board, which arms everybody as a warrior and says in
-		 * its own blurb that killing the Queen is the only way it ends.
-		 *
-		 * Same three conditions Worker.collission already uses against a
-		 * warrior: armed, mid-swing, and facing. Invulnerability and the
-		 * spare-egg check are Queen.attacked's, unchanged.
-		 */
 		if(o instanceof Worker) {
 			if(o.warrior && o.attacking && o.facing(this)) this.attacked(o);
 		}
