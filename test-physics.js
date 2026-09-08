@@ -160,6 +160,75 @@ async function geometry() {
 		check("200 pickups add no listeners", Game.instance._listeners.length - before, 0);
 	}
 
+	console.log("\n-- a warrior can kill the queen --");
+	{
+		// Worker.collission takes damage from `o instanceof Worker`, and a
+		// Queen is a Toon but not a Worker, so nothing on her side ever
+		// answered a warrior. She auto-attacked, killed him, and took nothing
+		// back -- which left the military win reachable only queen-on-queen,
+		// and the Bonus: Military board unable to end the way its own blurb
+		// says it ends.
+		const setup = async (arm, facing) => {
+			Game.instance.releaseLevel();
+			await Game.instance.loadLevel("day");
+			Game.instance.dispatchEvent(new KQ.Event(CONST.GAME_START));
+			clearInterval(Game.instance.loopIntervalId);
+			Game.instance.loopIntervalId = null;
+
+			const level = Game.instance.virtual.level;
+			const queen = level.toons["teamBlue-queen"];
+			const w = level.toons["teamGold-worker0"];
+			w.mReset();
+			if(arm) w.gainWarrior();
+			w.Invulnerable = false;
+			queen.Invulnerable = false;
+			w.attack();
+			queen.top = 300; queen.left = 400; queen.direction = CONST.DIRECTION_LEFT;
+			w.top = 300; w.left = facing ? 395 : 460;
+			w.direction = facing ? CONST.DIRECTION_RIGHT : CONST.DIRECTION_RIGHT;
+			return {queen, w, eggs: () => KQ.Egg.eggsForTeam("teamBlue").length};
+		};
+
+		{
+			const s = await setup(true, true);
+			const before = s.eggs();
+			s.queen.collission(s.w);
+			check("a warrior mid-swing costs her an egg", s.eggs() < before, true);
+		}
+		{
+			const s = await setup(false, true);
+			const before = s.eggs();
+			s.queen.collission(s.w);
+			check("a plain drone does not", s.eggs(), before);
+		}
+		{
+			const s = await setup(true, false);
+			const before = s.eggs();
+			s.queen.collission(s.w);
+			check("nor a warrior facing away", s.eggs(), before);
+		}
+		{
+			const s = await setup(true, true);
+			s.queen.Invulnerable = true;
+			const before = s.eggs();
+			s.queen.collission(s.w);
+			check("nor one who catches her just respawned", s.eggs(), before);
+		}
+		{
+			// Her last egg gone is a military win rather than a respawn, and
+			// the win is credited to whoever swung.
+			const s = await setup(true, true);
+			Game.instance.virtual.level.eggs.forEach(e => { if(e.team == "teamBlue") e.hatched = true; });
+			let won = null;
+			const real = Game.instance.win;
+			Game.instance.win = (type, team) => { won = {type, team}; };
+			s.queen.collission(s.w);
+			Game.instance.win = real;
+			check("out of eggs, it is a military win", won && won.type, CONST.WIN_MILITARY);
+			check("for the warrior's team", won && won.team, "teamGold");
+		}
+	}
+
 	console.log("\n-- a position that is not a number does not hang the loop --");
 	{
 		// hitTestBounds compares four ways and negates the result, so a NaN
